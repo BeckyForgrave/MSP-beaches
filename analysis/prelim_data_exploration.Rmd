@@ -1,0 +1,446 @@
+---
+title: "Beaches"
+author: "Becky Forgrave"
+date: "2025-04-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+library(patchwork)
+library(mnsentinellakes)
+
+```
+
+```{r load data}
+
+setwd("C:/Users/forgr/OneDrive/UMN/Data/beaches")
+
+# Two beaches don't have a DOW - Minnetonka swim pond and Elm creek swim pond
+# messes up fixlakeid()
+
+beaches <- read.csv("Beaches-2004-2024-RC-MPRB-TRPD_openrefine.csv") %>%
+  # mutate(DOW = fixlakeid(DNRID)) %>%
+  mutate(Date = as.POSIXct(Date, format = "%m/%d/%Y"))  %>%
+  mutate(Year = year(Date)) %>%
+  mutate(Month = month(Date)) 
+
+precip <- read.csv("precip_by_month.csv") %>%
+  # mutate_if(is.character, as.numeric) %>%
+  select(Year, Annual) %>%
+  rename(Annual_in = Annual) %>%
+  mutate(Annual_mm = Annual_in * 25.4)
+
+
+
+
+```
+# overall data exploration
+```{r}
+
+
+length(unique(beaches$BeachName))
+# 39 beaches
+
+length(unique(beaches$DNRID))
+# 28 lakes (actually 30, but two dont have DNRID)
+
+closed <- beaches %>%
+  filter(ClosureYN == "Y")
+
+ggplot(closed, aes(x = ClosureReason)) + 
+  geom_bar()
+
+# how many closures in past 16 years from each type
+closures.summary <- closed %>% 
+  group_by(ClosureReason) %>%
+    summarize(n = n(),
+              perc = round((n/length(closed$BeachName))*100,digits = 2))
+closures.summary
+
+# 95% of closures are Ecoli related
+# probably because not much cyanobacteria sampling -> hard to sample because the blooms move and testing is expensive
+
+# All microcystin closures are at lake Nokomis (Only MPRB monitors for it)
+```
+
+# separate into HABs and Ecoli data
+```{r}
+
+closed.habs <- beaches %>%
+  filter(ClosureYN == "Y") %>%
+  filter(!is.na(Microcystin_ugL))
+
+closed.ecoli <- beaches %>%
+  filter(ClosureYN == "Y") %>%
+  filter(!is.na(Ecoli_1dGM) | !is.na(Ecoli_30dGM))
+
+
+
+
+all.habs <- beaches %>%
+  filter(!is.na(Microcystin_ugL))
+
+all.ecoli <- beaches %>%
+  filter(!is.na(Ecoli_1dGM) | !is.na(Ecoli_30dGM))
+
+
+
+
+beach.summary.ecoli <- all.ecoli %>%
+  group_by(BeachName) %>%
+    summarize(startYear = min(Year), 
+              endYear = max(Year),
+              numSamples = n()) 
+beach.summary.ecoli
+
+
+
+beach.summary.habs  <- all.habs %>%
+  group_by(BeachName) %>%
+    summarize(startYear = min(Year), 
+              endYear = max(Year),
+              numSamples = n()) 
+beach.summary.habs
+
+
+write.csv(beach.summary.ecoli, "./output/sampling_dates_beaches_Ecoli.csv", row.names = FALSE)
+write.csv(beach.summary.habs, "./output/sampling_dates_beaches_habs.csv", row.names = FALSE)
+
+
+```
+
+# simple plot of microcystin data
+```{r}
+
+all.habs %>%
+  ggplot(aes(x = Date, y = Microcystin_ugL)) +
+  geom_point() + 
+  theme_bw()
+
+```
+
+```{r}
+
+ecoli1dayplot <- all.ecoli %>%
+  ggplot(aes(x = Date, y = Ecoli_1dGM, color=ClosureYN)) +
+  geom_point() + 
+  geom_hline(yintercept = 1260) + 
+  theme_bw()
+
+
+ecoli30dayplot <- all.ecoli %>%
+  ggplot(aes(x = Date, y = Ecoli_30dGM, color=ClosureYN)) +
+  geom_point() + 
+  geom_hline(yintercept = 126) + 
+  theme_bw()
+
+
+ecoli1dayplot + ecoli30dayplot 
+
+```
+
+```{r}
+
+
+year.summary <- beaches %>% 
+   filter(Date > "2005-01-01") %>%
+  group_by(Year) %>%
+    summarize(numSamples = n()) 
+
+year.summary.closed <- beaches %>%
+   filter(ClosureYN == "Y") %>%
+   filter(Date > "2005-01-01") %>%
+  group_by(Year) %>%
+    summarize(numClosures = n())
+
+
+year.summary  <- left_join(year.summary , year.summary.closed) %>%
+  mutate(percClosed = round((numClosures/numSamples) *100)) %>%
+  arrange(desc(percClosed))
+year.summary 
+
+
+
+#histogram of closures by year??
+closedplot <- ggplot(closed.ecoli, aes(Year)) +
+  geom_bar(fill = "maroon") + 
+  ylab("Closed days") +
+  xlim(2005, 2025) + 
+  theme_bw() + 
+  theme(text = element_text(size = 14))
+
+
+# # plot number of samples each year
+# ggplot(year.summary, aes(x=Year, y=percClosed)) +
+#   geom_point() + 
+#   geom_line() +
+#   ylab("Percentage of samples \n above closure threshold") +
+#   theme_bw() + 
+#   theme(text = element_text(size = 14))
+
+
+# plot number of samples each year
+percsamplesplot <- ggplot(year.summary, aes(x=Year, y=numSamples)) +
+  geom_col(fill = "darkgreen") + 
+  ylab("Samples collected") +
+  xlim(2005, 2025) + 
+  theme_bw() + 
+  theme(text = element_text(size = 14))
+
+
+closedplot / percsamplesplot 
+
+
+```
+
+
+# are there beaches that close more often than others
+```{r}
+
+# table of number of beach closures per beach in whole dataset
+beach.summary <- beaches %>% 
+   filter(Date > "2008-01-01") %>%
+  group_by(BeachName) %>%
+    summarize(startYear = min(Year), 
+              endYear = max(Year),
+              numSamples = n()) 
+beach.summary
+
+
+
+closed.summary <- closed %>% 
+   filter(Date > "2008-01-01") %>%
+  group_by(BeachName) %>%
+    summarize(numClosures = n())
+closed.summary
+
+
+
+
+combined.summary <- left_join(beaches.summary, closed.summary) %>%
+  mutate(percClosed = round((numClosures/numSamples) *100)) %>%
+  arrange(desc(percClosed))
+combined.summary
+
+mostclosedlist <- combined.summary$BeachName[1:10]
+
+
+```
+
+# ecoli only
+```{r}
+
+
+# group by year and beach
+beach.and.year <- all.ecoli %>% 
+   filter(Date > "2008-01-01") %>%
+  group_by(BeachName, Year) %>%
+    summarize(numSamples = n())
+
+closed.each.year <- closed.ecoli %>% 
+   filter(Date > "2008-01-01") %>%
+  group_by(BeachName, Year) %>%
+    summarize(numClosures = n())
+closed.each.year
+
+beach.and.year<- left_join(beach.and.year, closed.each.year) %>%
+  mutate(percClosed = round((numClosures/numSamples) *100)) %>%
+  arrange(desc(percClosed))
+beach.and.year
+
+
+
+# plot of beaches over time
+beach.and.year %>%
+  filter(Year > 2007) %>%
+  ggplot(aes(x=Year, y =percClosed)) + 
+    geom_point() + 
+    geom_smooth(method = "lm")
+
+# plot this with number of samples
+ggplot(beach.and.year, aes(x=Year, y=numSamples)) + 
+  geom_point()
+
+
+
+
+```
+
+```{r closer analysis of top 10 beaches for closures}
+
+top10beaches <- beaches %>%
+  filter(BeachName %in% mostclosedlist)
+
+ggplot(top10beaches, aes(x=Date, y = Ecoli_1dGM)) + 
+  geom_point() +  
+  geom_smooth(se = FALSE) +
+  facet_wrap(vars(BeachName))
+
+# no consistent pattern over time
+
+
+
+```
+
+
+
+# are there years with more closures than others? --> yes
+```{r}
+
+
+ggplot(top10beaches, aes(x = Date, y=Ecoli_1dGM, color = BeachName))  + 
+  geom_point() + 
+  geom_hline(yintercept =1260)
+
+
+ggplot(top10beaches, aes(x = Date, y=Ecoli_30dGM, color = BeachName))  + 
+  geom_point() +
+  geom_hline(yintercept = 126)
+
+
+# no years rise above teh rest as more closures
+```
+
+
+
+
+# are beach closures increasing in frequency over time? --> yes
+```{r}
+
+ggplot(closed.ecoli, aes(x=Year)) + 
+  geom_bar()
+
+
+
+
+
+closed.by.year <- closed.ecoli %>% 
+  group_by(Year) %>%
+    summarize(nClosure = n()) 
+closed.by.year 
+
+beaches.by.year <- beaches %>% 
+  group_by(Year) %>%
+    summarize(nBeaches = n())
+beaches.by.year
+
+
+
+
+
+
+```
+
+```{r}
+
+
+#histogram of closures by year
+closedplot <- ggplot(closed.ecoli, aes(Year)) +
+  geom_bar(fill = "maroon") + 
+  ylab("Closed days") + xlab("") +
+  xlim(2005, 2025) + 
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + 
+  theme(text = element_text(size = 20))
+
+
+# plot number of samples each year
+percsamplesplot <- ggplot(year.summary, aes(x=Year, y=numSamples)) +
+  geom_col(fill = "darkgreen") + 
+  ylab("Samples collected") +  xlab("") +
+  xlim(2005, 2025) + 
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + 
+  theme(text = element_text(size = 20))
+
+# annual precipitation
+precipplot <- ggplot(precip, aes(x=Year, y=Annual_mm)) +
+  geom_col(fill = "blue") + 
+  ylab("Annual Precip (mm)") + xlab("")  +
+  xlim(2005, 2025) + 
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + 
+  theme(text = element_text(size = 20))
+
+
+P1 <- closedplot / percsamplesplot / precipplot
+
+
+ggsave("precip_and_closures.png", plot = P1, device = "png", scale = 1, width = 10, height = 8, units = "in")
+
+```
+
+
+```{r}
+
+
+#histogram of # closed days
+
+percclosedplot <- ggplot(year.summary, aes(x=Year, y=percClosed)) +
+  geom_col(fill = "darkorange") + 
+  ylab("% of days closed") + xlab("") +
+  xlim(2005, 2025) + 
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + 
+  theme(text = element_text(size = 20))
+
+
+# plot number of samples each year
+percsamplesplot <- ggplot(year.summary, aes(x=Year, y=numSamples)) +
+  geom_col(fill = "darkgreen") + 
+  ylab("Samples collected") +  xlab("") +
+  xlim(2005, 2025) + 
+  theme_bw() + 
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + 
+  theme(text = element_text(size = 20))
+
+# annual precipitation
+precipplot <- ggplot(precip, aes(x=Year, y=Annual_mm)) +
+  geom_col(fill = "blue") + 
+  ylab("Annual Precip (mm)") + xlab("")  +
+  xlim(2005, 2025) + 
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + 
+  theme(text = element_text(size = 20))
+
+
+P2 <- percclosedplot  / percsamplesplot / precipplot
+
+
+ggsave("precip_and_percent_closures.png", plot = P2, device = "png", scale = 1, width = 10, height = 8, units = "in")
+
+#
+# this is the average across all beaches --> need one that is beach specific somehow
+# waht else is changing over time?
+
+```
+
+# subivide by beach?
+```{r}
+# remove beaches with no closures
+
+beachandyear_naRem <- beach.and.year %>% 
+  filter(!is.na(numClosures)) 
+  
+
+# note enough colors .....
+
+
+ggplot(beachandyear_naRem, aes(x=Year, y=numClosures, fill=BeachName)) +
+  geom_bar(position="stack", stat="identity") + 
+  ylab("Number of days closed") + xlab("") +
+  xlim(2005, 2025) + 
+  theme_bw() 
+
+closed.ecoli
+
+
+
+```
+
+
+

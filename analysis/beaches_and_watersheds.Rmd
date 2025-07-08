@@ -1,0 +1,64 @@
+---
+title: "Beaches and watershed variables"
+author: "Becky Forgrave"
+date: "2025-06-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(mnsentinellakes)
+
+knitr::opts_knit$set(root.dir = "C:/Users/forgr001/Documents/MSP-LTER/Data/beaches")
+# this sintl working anymore.... :/
+
+```
+
+# LOAD DATA
+# beach data
+``` {r}
+
+setwd("C:/Users/forgr001/Documents/MSP-LTER/Data/beaches/")
+
+beaches <- read.csv("./data/processed/Beaches-2004-2024-RC-MPRB-TRPD_050825.csv") %>%
+  filter(!is.na(DNRID)) %>%
+  mutate(DOW = fixlakeid(DNRID))
+
+# TRPDlistbeaches <- beaches %>%
+#   filter(MonitoringOrg == "TRPD") 
+# 
+# unique(TRPDlistbeaches$BeachName)
+
+
+
+listBeaches <- read.csv("./data/processed/BeachList.csv") %>%
+  filter(!is.na(DOW)) %>%
+  mutate(DOW = fixlakeid(DOW)) 
+
+
+```
+
+# lake data
+```{r}
+
+setwd("C:/Users/forgr001/Documents/MSP-LTER/Data/watersheds")
+
+MLS3 <- read.csv("MLS3_openrefine10-23-23.csv")
+
+```
+
+# watershed data
+```{r}
+
+setwd("C:/Users/forgr001/Documents/MSP-LTER/Data/watersheds")
+
+wsmetrics <- read.csv("./output/11-7-24/wsmetrics_combined_5-21-25.csv")
+
+```
+
+# PRELIM EXPLORATION
+```{r}
+
+```
