@@ -3,7 +3,7 @@
 ## Started on 07 July 20256
 
 # Purpose of code ---------------------------------------------------------
-## Clean Minnetonka beach closure/e coli data
+## Clean Minnetonka beach closure/E. coli data
 ## Prep the data to be used in master sheet of all beach data
 
 # Packages to load --------------------------------------------------------
@@ -14,8 +14,7 @@ library(readxl)
 library(here)
 
 # Data to import ----------------------------------------------------------
-## temporary import:
-### import data from google drive
+## import data from google drive
 
 drive_download( # download spreadsheet from google drive
   file = as_id("https://docs.google.com/spreadsheets/d/13-xpPApZdTUHl4wTFUecicuZW5CA3ElR/edit?gid=1897849526#gid=1897849526"),
