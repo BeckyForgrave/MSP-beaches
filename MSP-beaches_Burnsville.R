@@ -38,21 +38,759 @@ burnsville <- # import all sheets as df's in a list
 
 names(burnsville) <- sheet_names # give each element the sheet name
 
-# Look at structure of each df----
+# Clean "2024" element----
 
-map(
-  .x = burnsville,
-  .f = str
-)
+x <-
+  burnsville[[1]]
 
-map(
-  .x = burnsville,
-  .f = summary
-)
+str(x)
 
-### 2024-2020 have 11 cols
-### 2019 has 12 cols
-### 2018-2011 have 17 cols
-### 2010-2007 have 11 cols
-### 2006 has 6 cols
+## Rename cols----
+### col2 = Sample1
+### col3 = Sample2
+### col4 = Sample3
+### col5 = Date
+
+x <-
+  x %>%
+  rename(
+    "Sample1" = 2,
+    "Sample2" = 3,
+    "Sample3" = 4,
+    "Date" = 5
+  )
+
+## drop unneeded cols----
+
+x <-
+  x %>%
+  select(
+    "Sample1", "Sample2", "Sample3", "Date"
+  )
+
+## Keep only numeric data----
+### There are fifteen weeks with measurements, final df should have 15 rows
+
+Expected = 15
+
+x <-
+  x %>%
+  mutate(
+    across(
+      .cols = 1:4,
+      .fns = as.numeric
+    )
+  ) %>%
+  drop_na()
+
+nrow(y) == Expected # True
+
+## Create df for all data----
+
+df <- x
+
+# Clean "2023" element----
+
+x <-
+  burnsville[[2]]
+
+## Rename cols----
+### col2 = Sample1
+### col3 = Sample2
+### col4 = Sample3
+### col5 = Date
+
+x <-
+  x %>%
+  rename(
+    "Sample1" = 2,
+    "Sample2" = 3,
+    "Sample3" = 4,
+    "Date" = 5
+  )
+
+## drop unneeded cols----
+
+x <-
+  x %>%
+  select(
+    "Sample1", "Sample2", "Sample3", "Date"
+  )
+
+## Keep only numeric data----
+### There are 14 weeks with measurements, final df should have 14 rows
+
+Expected = 14
+
+x <-
+  x %>%
+  mutate(
+    across(
+      .cols = 1:4,
+      .fns = as.numeric
+    )
+  ) %>%
+  drop_na()
+
+nrow(x) == Expected # True
+
+## Add to df----
+
+Expected <- nrow(df) + nrow(x)
+
+df <-
+  rbind(
+    df, x
+  )
+
+nrow(df) == Expected # True
+
+# Clean "2022" element----
+
+x <-
+  burnsville[[3]]
+
+## Rename cols----
+### col2 = Sample1
+### col3 = Sample2
+### col4 = Sample3
+### col5 = Date
+
+x <-
+  x %>%
+  rename(
+    "Sample1" = 2,
+    "Sample2" = 3,
+    "Sample3" = 4,
+    "Date" = 5
+  )
+
+## drop unneeded cols----
+
+x <-
+  x %>%
+  select(
+    "Sample1", "Sample2", "Sample3", "Date"
+  )
+
+## Keep only numeric data----
+### There are 14 weeks with measurements, final df should have 14 rows
+
+Expected = 14
+
+x <-
+  x %>%
+  mutate(
+    across(
+      .cols = 1:4,
+      .fns = as.numeric
+    )
+  ) %>%
+  drop_na()
+
+nrow(x) == Expected # True
+
+## Add to df----
+
+Expected <- nrow(df) + nrow(x)
+
+df <-
+  rbind(
+    df, x
+  )
+
+nrow(df) == Expected # True
+
+# Clean "2021" element----
+
+x <-
+  burnsville[[4]]
+
+## 15 sampling dates
+## sample unit = mpn
+
+## Rename cols----
+### col2 = Sample1
+### col3 = Sample2
+### col4 = Sample3
+### col5 = Date
+
+x <-
+  x %>%
+  rename(
+    "Sample1" = 2,
+    "Sample2" = 3,
+    "Sample3" = 4,
+    "Date" = 5
+  )
+
+## drop unneeded cols----
+
+x <-
+  x %>%
+  select(
+    "Sample1", "Sample2", "Sample3", "Date"
+  )
+
+## Keep only numeric data----
+### There are 15 weeks with measurements, final df should have 15 rows
+
+Expected = 15
+
+x <-
+  x %>%
+  mutate(
+    across(
+      .cols = 1:4,
+      .fns = as.numeric
+    )
+  ) %>%
+  drop_na()
+
+nrow(x) == Expected # True
+
+## Add to df----
+
+Expected <- nrow(df) + nrow(x)
+
+df <-
+  rbind(
+    df, x
+  )
+
+nrow(df) == Expected # True
+
+# Clean "2020" element----
+
+x <-
+  burnsville[[5]]
+
+## 15 sampling dates
+## sample unit = mpn
+
+## Rename cols----
+### col2 = Sample1
+### col3 = Sample2
+### col4 = Sample3
+### col5 = Date
+
+x <-
+  x %>%
+  rename(
+    "Sample1" = 2,
+    "Sample2" = 3,
+    "Sample3" = 4,
+    "Date" = 5
+  )
+
+## drop unneeded cols----
+
+x <-
+  x %>%
+  select(
+    "Sample1", "Sample2", "Sample3", "Date"
+  )
+
+## Keep only numeric data----
+### df will have 15 rows
+
+Expected = 15
+
+x <-
+  x %>%
+  mutate(
+    across(
+      .cols = 1:4,
+      .fns = as.numeric
+    )
+  ) %>%
+  drop_na()
+
+nrow(x) == Expected # True
+
+## Add to df----
+
+Expected <- nrow(df) + nrow(x)
+
+df <-
+  rbind(
+    df, x
+  )
+
+nrow(df) == Expected # True
+
+# Clean "2019" element----
+
+x <-
+  burnsville[[6]]
+
+## 15 sampling dates
+## sample unit = mpn
+
+## Rename cols----
+### col2 = Sample1
+### col3 = Sample2
+### col4 = Sample3
+### col5 = Date
+
+x <-
+  x %>%
+  rename(
+    "Sample1" = 2,
+    "Sample2" = 3,
+    "Sample3" = 4,
+    "Date" = 5
+  )
+
+## drop unneeded cols----
+
+x <-
+  x %>%
+  select(
+    "Sample1", "Sample2", "Sample3", "Date"
+  )
+
+## Keep only numeric data----
+### df will have 15 rows
+
+Expected = 15
+
+x <-
+  x %>%
+  mutate(
+    across(
+      .cols = 1:4,
+      .fns = as.numeric
+    )
+  ) %>%
+  drop_na()
+
+nrow(x) == Expected # True
+
+## Add to df----
+
+Expected <- nrow(df) + nrow(x)
+
+df <-
+  rbind(
+    df, x
+  )
+
+nrow(df) == Expected # True
+
+# Clean "2018" element----
+
+x <-
+  burnsville[[7]]
+
+## 14 sampling dates
+## sample unit = mpn
+
+## Rename cols----
+### will not use site AL
+### col2 = Sample1
+### col3 = Sample2
+### col4 = Sample3
+### col7 = Date
+
+x <-
+  x %>%
+  rename(
+    "Sample1" = 2,
+    "Sample2" = 3,
+    "Sample3" = 4,
+    "Date" = 7
+  )
+
+## drop unneeded cols----
+
+x <-
+  x %>%
+  select(
+    "Sample1", "Sample2", "Sample3", "Date"
+  )
+
+## Keep only numeric data----
+### df will have 14 rows
+
+Expected = 14
+
+x <-
+  x %>%
+  mutate(
+    across(
+      .cols = 1:4,
+      .fns = as.numeric
+    )
+  ) %>%
+  drop_na()
+
+nrow(x) == Expected # True
+
+## Add to df----
+
+Expected <- nrow(df) + nrow(x)
+
+df <-
+  rbind(
+    df, x
+  )
+
+nrow(df) == Expected # True
+
+# Clean "2017" element----
+
+x <-
+  burnsville[[8]]
+
+## 14 sampling dates
+## sample unit = mpn
+
+## Rename cols----
+### will not use site AL
+### col2 = Sample1
+### col3 = Sample2
+### col4 = Sample3
+### col7 = Date
+
+x <-
+  x %>%
+  rename(
+    "Sample1" = 2,
+    "Sample2" = 3,
+    "Sample3" = 4,
+    "Date" = 7
+  )
+
+## drop unneeded cols----
+
+x <-
+  x %>%
+  select(
+    "Sample1", "Sample2", "Sample3", "Date"
+  )
+
+## last row has different date entry----
+### remove * from date
+
+x <-
+  x %>%
+  mutate(
+    Date = str_remove(
+      string = Date,
+      pattern = "\\*"
+    )
+  )
+
+### extract row with odd date
+#### locate row in which this date occurs
+
+row_remove <- which(x$Date == "8/28/2017") # create object with row #
+y <- x[row_remove, ] # put row in a new df
+x <- x[-(row_remove), ] # remove row from main df
+
+### create a df_alternate and add this to it
+### will add this to main df when it has date format
+
+df_alt <- y
+
+## Keep only numeric data----
+### df will have 13 rows
+##
+
+Expected = 13
+
+x <-
+  x %>%
+  mutate(
+    across(
+      .cols = 1:4,
+      .fns = as.numeric
+    )
+  ) %>%
+  drop_na()
+
+nrow(x) == Expected # True
+
+## Add to df----
+
+Expected <- nrow(df) + nrow(x)
+
+df <-
+  rbind(
+    df, x
+  )
+
+nrow(df) == Expected # True
+
+# Clean "2016" element----
+
+x <-
+  burnsville[[9]]
+
+## 14 sampling dates
+## sample unit = mpn
+
+## Rename cols----
+### will not use site AL
+### col2 = Sample1
+### col3 = Sample2
+### col4 = Sample3
+### col7 = Date
+
+x <-
+  x %>%
+  rename(
+    "Sample1" = 2,
+    "Sample2" = 3,
+    "Sample3" = 4,
+    "Date" = 7
+  )
+
+## drop unneeded cols----
+
+x <-
+  x %>%
+  select(
+    "Sample1", "Sample2", "Sample3", "Date"
+  )
+
+## Keep only numeric data----
+### df will have 14 rows
+##
+
+Expected = 14
+
+x <-
+  x %>%
+  mutate(
+    across(
+      .cols = 1:4,
+      .fns = as.numeric
+    )
+  ) %>%
+  drop_na()
+
+nrow(x) == Expected # True
+
+## Add to df----
+
+Expected <- nrow(df) + nrow(x)
+
+df <-
+  rbind(
+    df, x
+  )
+
+nrow(df) == Expected # True
+
+# Clean "2015" element----
+
+x <-
+  burnsville[[10]]
+
+## 15 sampling dates
+## sample unit = mpn
+
+## Rename cols----
+### will not use site AL
+### col2 = Sample1
+### col3 = Sample2
+### col4 = Sample3
+### col7 = Date
+
+x <-
+  x %>%
+  rename(
+    "Sample1" = 2,
+    "Sample2" = 3,
+    "Sample3" = 4,
+    "Date" = 7
+  )
+
+## drop unneeded cols----
+
+x <-
+  x %>%
+  select(
+    "Sample1", "Sample2", "Sample3", "Date"
+  )
+
+## drop unneeded rows (that also contain numeric data that is a summary from
+### the sampling data)
+
+x <-
+  x[1:18, ]
+
+## Keep only numeric data----
+### df will have 15 rows
+##
+
+Expected = 15
+
+x <-
+  x %>%
+  mutate(
+    across(
+      .cols = 1:4,
+      .fns = as.numeric
+    )
+  ) %>%
+  drop_na()
+
+nrow(x) == Expected # True
+
+## Add to df----
+
+Expected <- nrow(df) + nrow(x)
+
+df <-
+  rbind(
+    df, x
+  )
+
+nrow(df) == Expected # True
+
+# Clean "2014" element----
+
+x <-
+  burnsville[[11]]
+
+## 14 sampling dates
+## sample unit = mpn
+
+## Rename cols----
+### will not use site AL
+### col2 = Sample1
+### col3 = Sample2
+### col4 = Sample3
+### col7 = Date
+
+x <-
+  x %>%
+  rename(
+    "Sample1" = 2,
+    "Sample2" = 3,
+    "Sample3" = 4,
+    "Date" = 7
+  )
+
+## drop unneeded cols----
+
+x <-
+  x %>%
+  select(
+    "Sample1", "Sample2", "Sample3", "Date"
+  )
+
+## Keep only numeric data----
+### df will have 14 rows
+##
+
+Expected = 14
+
+x <-
+  x %>%
+  mutate(
+    across(
+      .cols = 1:4,
+      .fns = as.numeric
+    )
+  ) %>%
+  drop_na()
+
+nrow(x) == Expected # True
+
+## Add to df----
+
+Expected <- nrow(df) + nrow(x)
+
+df <-
+  rbind(
+    df, x
+  )
+
+nrow(df) == Expected # True
+
+# Clean "2013" element----
+
+x <-
+  burnsville[[12]]
+
+## 14 sampling dates
+## sample unit = mpn
+
+## Rename cols----
+### will not use site AL
+### col2 = Sample1
+### col3 = Sample2
+### col4 = Sample3
+### col7 = Date
+
+x <-
+  x %>%
+  rename(
+    "Sample1" = 2,
+    "Sample2" = 3,
+    "Sample3" = 4,
+    "Date" = 7
+  )
+
+## drop unneeded cols----
+
+x <-
+  x %>%
+  select(
+    "Sample1", "Sample2", "Sample3", "Date"
+  )
+
+## drop unneeded rows (that also contain numeric data that is a summary from
+### the sampling data)
+
+x <-
+  x[1:18, ]
+
+## Keep only numeric data----
+### df will have 14 rows
+##
+
+Expected = 14
+
+x <-
+  x %>%
+  mutate(
+    across(
+      .cols = 1:4,
+      .fns = as.numeric
+    )
+  ) %>%
+  drop_na()
+
+nrow(x) == Expected # True
+
+## Add to df----
+
+Expected <- nrow(df) + nrow(x)
+
+df <-
+  rbind(
+    df, x
+  )
+
+nrow(df) == Expected # True
+
+# stopped here---
+
+
+
+
+
+
+
+
+
+
+
+
+
 
