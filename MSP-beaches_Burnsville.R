@@ -981,7 +981,7 @@ x <-
   burnsville[[14]]
 
 ## 14 sampling dates
-## sample unit
+## sample unit = cfu
 
 ## Rename cols----
 ### will not use site AL
