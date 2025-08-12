@@ -1,6 +1,8 @@
 # Cleaning raw data on beach closures from Minnetonka ---------------------
 ## Code written by Julia D Grabow
-## Started on 07 July 20256
+## Started on 07 July 2025
+
+## BF edits 12 August 2025
 
 # Purpose of code ---------------------------------------------------------
 ## Clean Minnetonka beach closure/E. coli data
@@ -12,119 +14,150 @@ library(tidyverse)
 library(googledrive)
 library(readxl)
 library(here)
+library(FSA) # for geomean() function
+
+
+
 
 # Data to import ----------------------------------------------------------
 ## import data from google drive
 
 drive_download( # download spreadsheet from google drive
   file = as_id("https://docs.google.com/spreadsheets/d/13-xpPApZdTUHl4wTFUecicuZW5CA3ElR/edit?gid=1897849526#gid=1897849526"),
-  path = here("MSP-beaches_Minnetonka_raw.xlsx")
+  path = here("MSP-beaches_Minnetonka_raw.xlsx"),
+  overwrite = TRUE   # this is helpful to make sure folks don't accidentally use a modified local version of the file
 )
 
 path <- here("MSP-beaches_Minnetonka_raw.xlsx")
 
-x <- # import first sheet
-  read_xlsx(
-    path = path,
-    sheet = 1
-  )
+sheetnames <- excel_sheets(path = path) # import sheet names 
 
-name <- names(x)[1] # grab lake name
+# I did have to manfully change = a single value in the Libbs lake sheet from 2016 to 1/1/2106 so the loop worked
 
-names(x) <- x[1, ] # Make first row into column names
-x <- x[-1, ] # Remove first row
 
-colnames(x)[11] <- "Temporary1" # name unnamed col
-colnames(x)[12] <- "Temporary2" # name unnamed col
+## loop through each sheet in excel doc, manipulating data in same way
 
-x <- # add lake name column
-  x %>%
-  mutate(
-    BeachName = str_remove(
-      string = name,
-      pattern = " Beach"
-    ),
-    .before = Date
-  )
+minnetonka_raw <- data.frame()  # initiate an empty df to put all compiled sheets in
 
-## standardize col names
+for (i in 1:length(sheetnames)) {
 
-str(x)
-
-x <- # standardize col names
-  x %>%
-  rename(
-    "sample1" = ES,
-    "sample2" = ED,
-    "sample3" = WS,
-    "sample4" = WD,
-    "sample5" = C
+  sheet <- read_xlsx(
+      path = path,
+      sheet = sheetnames[i],
+      skip = 1 # skip first row so column names and formats map correctly
     )
+  
+  colnames(sheet)[11] <- "Temporary1" # name unnamed col
+  colnames(sheet)[12] <- "Temporary2" # name unnamed col
+  
+  sheet <- sheet %>% 
+    mutate(BeachName = sheetnames[i], .before = Date) %>% # add beach name column from list of beach names 
+    mutate(Date = as.Date(Date)) %>% # format date
+    rename(sample1 = !!3, sample2 = !!4, sample3 = !!5, sample4 = !!6, sample5 = !!7) # rename columns 3-7 by index to standardize names
+  
+    # join to combined df
+    minnetonka_raw <- rbind(minnetonka_raw, sheet)
+}
+  
+rm(sheet) # remove intermediary variables no longer needed
 
-y <- # import second sheet
-  read_xlsx(
-    path = path,
-    sheet = 2
-  )
 
-name <- names(y)[1] # grab lake name
-
-names(y) <- y[1, ] # Make first row into column names
-y <- y[-1, ] # Remove first row
-
-colnames(y)[11] <- "Temporary1" # name unnamed col
-colnames(y)[12] <- "Temporary2" # name unnamed col
-
-y <- # add lake name
-  y %>%
-  mutate(
-    BeachName = str_remove(
-      string = name,
-      pattern = " Beach"
-    ),
-    .before = Date
-  )
-
-## standardize col names
-
-str(y)
-
-y <- # standardize col names
-  y %>%
-  rename(
-    "sample1" = SS,
-    "sample2" = SD,
-    "sample3" = NS,
-    "sample4" = ND,
-    "sample5" = C
-  )
-
-minnetonka_raw <- # bind the df's into one
-  rbind(x, y)
+# NO LONGER NEEDED --> saving for you to reference the intermeditaary step between your code and the loop above now but will delete later
+# 
+# ## import first sheet
+# sheet1 <- 
+#   read_xlsx(
+#     path = path,
+#     sheet = sheetnames[1],
+#     skip = 1 # skip first row so column names and formats map correctly
+#   )
+# 
+# colnames(sheet1)[11] <- "Temporary1" # name unnamed col
+# colnames(sheet1)[12] <- "Temporary2" # name unnamed col
+# 
+# 
+# sheet1 <- # add beach name column from list of beach names
+#   sheet1 %>%
+#   mutate(
+#     BeachName = beachlist[1],
+#     .before = Date
+#   )
+# 
+# str(sheet1)
+# 
+# sheet1 <- # standardize col names 
+#   sheet1 %>%
+#   rename(
+#     "sample1" = ES,
+#     "sample2" = ED,
+#     "sample3" = WS,
+#     "sample4" = WD,
+#     "sample5" = C
+#     )
+# 
+# 
+# 
+# ## import second sheet
+# sheet2 <- 
+#   read_xlsx(
+#     path = path,
+#     sheet = 2,
+#     skip = 1 # skip first row so column names and formats map correctly
+#   )
+# 
+# colnames(sheet2)[11] <- "Temporary1" # name unnamed col
+# colnames(sheet2)[12] <- "Temporary2" # name unnamed col
+# 
+# sheet2 <- # add lake name
+#   sheet2 %>%
+#   mutate(
+#     BeachName = beachlist[1],
+#     .before = Date
+#   )
+# 
+# str(sheet2)
+# 
+# sheet2 <- # standardize col names
+#   sheet2 %>%
+#   rename(
+#     "sample1" = SS,
+#     "sample1" = SD,
+#     "sample3" = NS,
+#     "sample4" = ND,
+#     "sample5" = C
+#   )
+# 
+# 
+# ## rename select columns by index
+# # this allows us to loop the whole thing because this renaming is the only thing different across sheets
+# # I found out how here: https://www.geeksforgeeks.org/r-language/how-to-rename-multiple-columns-in-r/#
+# sheet2 <-
+#   sheet2 %>% 
+#   rename(sample1 = !!3, sample2 = !!4, sample3 = !!5, sample4 = !!6, sample5 = !!7)
+# 
+# str(sheet2)
+# 
+# 
+# 
+# 
+# ## bind the df's into one
+# minnetonka_raw <- 
+#   rbind(sheet1, sheet2)
 
 minnetonka <- minnetonka_raw # create df to manipulate
 
-# Look at format of df's----
+
+
+# Look at format of dfs----
 
 str(minnetonka)
 summary(minnetonka)
 
 # Change values that are "<1" to 1----
 
-Expected <-
-  length(which(minnetonka$sample1 == "<1")) +
-  length(which(minnetonka$sample1 == "1")) +
-  length(which(minnetonka$sample2 == "<1")) +
-  length(which(minnetonka$sample2 == "1")) +
-  length(which(minnetonka$sample3 == "<1")) +
-  length(which(minnetonka$sample3 == "1")) +
-  length(which(minnetonka$sample4 == "<1")) +
-  length(which(minnetonka$sample4 == "1")) +
-  length(which(minnetonka$sample5 == "<1")) +
-  length(which(minnetonka$sample5 == "1"))
+Expected <- length(which(minnetonka[,3:9] == "<1")) +  length(which(minnetonka[,3:9] == "1")) # number of <1 and 1 in all data columns
 
-minnetonka <-
-  minnetonka %>%
+minnetonka <- minnetonka %>%
   mutate(
     across(
       .cols = 3:9,
@@ -136,92 +169,79 @@ minnetonka <-
     )
   )
 
-length(which(minnetonka$sample1 == "1")) +
-  length(which(minnetonka$sample2 == "1")) +
-  length(which(minnetonka$sample3 == "1")) +
-  length(which(minnetonka$sample4 == "1")) +
-  length(which(minnetonka$sample5 == "1")) == Expected # True
+# check that all converted correct
+length(which(minnetonka[,3:9] == "1"))  == Expected # True
 
 
-# Convert numeric rows from character to numeric----
 
-minnetonka <-
-  minnetonka %>%
+
+# Convert numeric columns from character to numeric----
+
+minnetonka <- minnetonka %>%
   mutate(
     across(
-      .cols = 2:7,
+      .cols = 3:10,
       .fns = as.numeric
     )
   )
 
-# Convert numeric to POSIXct----
 
-minnetonka <- # convert numeric date to date format
-  minnetonka %>%
-  mutate(
-    Date = as_date(
-      Date,
-      origin = "1899-12-30"
-    )
-  )
-   
 str(minnetonka)
 summary(minnetonka)
 
-## One row did not convert correctly -> this is Libbs Lake during 2016
-## No data, remove this row
 
-minnetonka <-
-  minnetonka %>%
-  drop_na(
-    "sample1"
-  )
 
-# To notes column, use language provided by BF for contamination and retesting
+## To notes column, use language provided by BF for contamination and retesting
 
-unique(minnetonka$Notes)
 
-minnetonka <- # create new notes col using a temporary col, rename original notes col
-  minnetonka %>%
-  rename(
-    Temporary3 = Notes,
-    Notes = Temporary2
-  )
+# I think we can just ignore the notes columns --> too hard to parse, and we will always have th original files to reference if needed
 
-minnetonka <- # make Notes col only NA values
-  minnetonka %>%
-  mutate(
-    Notes = NA
-  )
-
-minnetonka <- # note that contaminated and retested data as suspicioius
-  minnetonka %>%
-  mutate(
-    Notes = if_else(
-      condition = Temporary3 == "**Possible contamination",
-      true = "potential sample contamination",
-      false = Notes
-    ),
-    Notes = if_else(
-      condition = Temporary3 == "Retest of WS was 6.3",
-      true = "used retested water sample for geometric mean",
-      false = Notes
-    )
-  )
+# unique(minnetonka$Notes)
+# 
+# minnetonka <- # create new notes col using a temporary col, rename original notes col
+#   minnetonka %>%
+#   rename(
+#     Temporary3 = Notes,
+#     Notes = Temporary2
+#   )
+# 
+# minnetonka <- # make Notes col only NA values
+#   minnetonka %>%
+#   mutate(
+#     Notes = NA
+#   )
+# 
+# minnetonka <- # note that contaminated and retested data as suspicioius
+#   minnetonka %>%
+#   mutate(
+#     Notes = if_else(
+#       condition = Temporary3 == "**Possible contamination",
+#       true = "potential sample contamination",
+#       false = Notes
+#     ),
+#     Notes = if_else(
+#       condition = Temporary3 == "Retest of WS was 6.3",
+#       true = "used retested water sample for geometric mean",
+#       false = Notes
+#     )
+#   )
 
 # Remove unneeded cols (clearing clutter)
+# select ones you do want rather than what you don in case something weird is hanging on 
 
-minnetonka <-
-  minnetonka %>%
+minnetonka <- minnetonka %>%
   select(
-    !c(
-      "Composite E. coli (CFU/100ml)",
-      "5-Sample Geo. Mean E. coli (CFU/100ml)",
-      "Ambient Water Temp. oF",
-      Temporary3,
-      Temporary1
+      BeachName, 
+      Date,
+      sample1,
+      sample2,
+      sample3, 
+      sample4,
+      sample5
     )
-  )
+
+
+
 
 # Calculate geometric mean for sampling date----
 ## pivot longer----
@@ -229,53 +249,72 @@ minnetonka <-
 Expected <-
   nrow(minnetonka) * 5
 
-minnetonka <-
-  minnetonka %>%
+minnetonka_long <- minnetonka %>%
   pivot_longer(
     cols = c(sample1, sample2, sample3, sample4, sample5),
     names_to = "SampleID",
     values_to = "Meas"
   )
 
-nrow(minnetonka) == Expected # True
+nrow(minnetonka_long) == Expected # True
 
-## calculate product for each sampling date per site----
 
-minnetonka <-
-  minnetonka %>%
-  mutate(
-    product = prod(Meas),
-    .by = c(BeachName, Date)
-  )
 
-## determine how many sample size for each date per site----
+# group by date and beach to calculate 1-day geometric mean
+minnetonka_summary <- minnetonka_long  %>%
+  group_by(BeachName, Date) %>%
+  summarise(Ecoli_1dGM = round(geomean(Meas, na.rm = TRUE), digits = 1)) # keeps same sumber of sig figs as original data
 
-minnetonka <-
-  minnetonka %>%
-  mutate(
-    n = n(),
-    .by = c(BeachName, Date)
-  )
+# downloading a whole package to use one function one can seem excessive but it gives other fucntionality such as na.rm
 
-## find the nth log of the products----
-### create a vector for the base for the log transformation-----
 
-v <- as.numeric(unique(minnetonka$n))
 
-### find the nth log
 
-minnetonka <-
-  minnetonka %>%
-  mutate(
-    Ecoli_1dGM = log(
-      x = product,
-      base = v
-    ),
-    .by = c(BeachName, Date)
-  )
 
 # Find 30 day geometric mean----
 ## create separate df for 30 day calculations----
+
+
+
+ 
+# for each sampling date, select all data in 30-day interval, calc geometeric mean
+
+# create new column to hold 30day Gm
+minnetonka_long$Ecoli_1dGM <- 0
+minnetonka_long$Ecoli_30dGM <- 0
+
+
+libbs <- minnetonka_long %>%
+  filter(BeachName == "Libbs Lake Beach")
+
+  
+for (i in 1:length(libbs$Date)) {
+  
+  intervalstart <- as.POSIXct(libbs$Date[i] - 30) # start 30 days before sampling date
+  intervalend <-  as.POSIXct(libbs$Date[i])
+
+# add 1 day GM in here?
+  
+  # select all E coli measurements in range
+  span30d <-  libbs %>%
+    filter(Date >= intervalstart & Date <= intervalend)
+  
+  # calculate geometric mean and add it to column in df
+  libbs$Ecoli_30dGM[i] <- round(geomean(span30d$Meas, na.rm = TRUE), digits = 1)
+  
+}
+
+
+
+# there is definitely a way to do this in a loop through all beaches....but i can't think of it now
+# so we will just separate and recombine
+
+
+
+# then group by Date
+
+
+
 
 x <- minnetonka
 
@@ -416,7 +455,9 @@ minnetonka$Ecoli_1dGM > 1260 # none over 1260
 
 minnetonka$Ecoli_30dGM > 126 # none over 126
 
-## Do not need to note when beach closed due to E. coli levels
+## No beach closures due to E. coli levels
+
+
 
 # Standardize df to match master df----
 ## Add missing cols with single value----
@@ -425,23 +466,19 @@ minnetonka <-
   minnetonka %>%
   mutate(
     Ecoli_units = "cfu",
-    Entero_avg_cfu = NA,
-    Microcystin_ugL = NA,
-    Cylindro_ugL = NA,
-    Anatoxin_ugL = NA,
     ClosureYN = "N",
     ClosureReason = NA,
     MonitoringOrg = "Minnetonka"
   )
 
 ## add cols with values based on another col----
-## DNRID for shady oak = 27008900
-## DNRID for libbs lake = 27008500
+## DOW for shady oak = 27008900
+## DOWfor libbs lake = 27008500
 
 minnetonka <- # add DNRID for shady oak
   minnetonka %>%
   mutate(
-    DNRID = if_else(
+    DOW = if_else(
       condition = BeachName == "Shady Oak",
       true = 27008900,
       false = NA
@@ -451,23 +488,14 @@ minnetonka <- # add DNRID for shady oak
 minnetonka <- # add DNRID for Libbs Lake
   minnetonka %>%
   mutate(
-    DNRID = if_else(
+    DOW = if_else(
       condition = BeachName == "Libbs Lake",
       true = 27008500,
-      false = DNRID
+      false = DOW
     )
   )
 
-## Convert POSIXct to m/d/yyyy----
 
-minnetonka <-
-  minnetonka %>%
-  mutate(
-    Date = format(
-      Date,
-      "%m/%d/%Y"
-    )
-  )
 
 # Save csv----
 
@@ -476,4 +504,6 @@ write_csv(
   file = here("MSP-beaches_Minnetonka_clean.csv")
 )
 
-# Upload to Google Drive
+# Upload to Google Drive 
+
+# yes --> do you know how to do this?
