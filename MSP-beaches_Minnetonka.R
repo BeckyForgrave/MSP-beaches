@@ -32,7 +32,7 @@ path <- here("MSP-beaches_Minnetonka_raw.xlsx")
 
 sheetnames <- excel_sheets(path = path) # import sheet names 
 
-# I did have to manfully change = a single value in the Libbs lake sheet from 2016 to 1/1/2106 so the loop worked
+# I did have to manfully change the format a single value in the Libbs lake sheet in Excel from 2016 to 1/1/2106 so the loop worked
 
 
 ## loop through each sheet in excel doc, manipulating data in same way
@@ -62,7 +62,7 @@ for (i in 1:length(sheetnames)) {
 rm(sheet) # remove intermediary variables no longer needed
 
 
-# NO LONGER NEEDED --> saving for you to reference the intermeditaary step between your code and the loop above now but will delete later
+# NO LONGER NEEDED --> saving for you to reference the intermediary step between your code and the loop above now but will delete later
 # 
 # ## import first sheet
 # sheet1 <- 
@@ -259,14 +259,14 @@ minnetonka_long <- minnetonka %>%
 nrow(minnetonka_long) == Expected # True
 
 
-
-# group by date and beach to calculate 1-day geometric mean
-minnetonka_summary <- minnetonka_long  %>%
-  group_by(BeachName, Date) %>%
-  summarise(Ecoli_1dGM = round(geomean(Meas, na.rm = TRUE), digits = 1)) # keeps same sumber of sig figs as original data
-
-# downloading a whole package to use one function one can seem excessive but it gives other fucntionality such as na.rm
-
+# no longer needed
+# # group by date and beach to calculate 1-day geometric mean
+# minnetonka_summary <- minnetonka_long  %>%
+#   group_by(BeachName, Date) %>%
+#   summarise(Ecoli_1dGM = round(geomean(Meas, na.rm = TRUE), digits = 1)) # keeps same sumber of sig figs as original data
+# 
+# # downloading a whole package to use one function one can seem excessive but it gives other fucntionality such as na.rm
+# 
 
 
 
@@ -279,11 +279,12 @@ minnetonka_summary <- minnetonka_long  %>%
  
 # for each sampling date, select all data in 30-day interval, calc geometeric mean
 
-# create new column to hold 30day Gm
+# create new column to hold calculated values
 minnetonka_long$Ecoli_1dGM <- 0
 minnetonka_long$Ecoli_30dGM <- 0
 
 
+# separate by beach for calculations
 libbs <- minnetonka_long %>%
   filter(BeachName == "Libbs Lake Beach")
 
@@ -293,177 +294,210 @@ for (i in 1:length(libbs$Date)) {
   intervalstart <- as.POSIXct(libbs$Date[i] - 30) # start 30 days before sampling date
   intervalend <-  as.POSIXct(libbs$Date[i])
 
-# add 1 day GM in here?
+  # select all E coli measurements for one day
+  oneday <-  libbs %>%
+    filter(Date == intervalend)
+  
+  # calculate 1 day geometric mean and add it to column in df
+  libbs$Ecoli_1dGM[i] <- round(geomean(oneday$Meas, na.rm = TRUE), digits = 1)
+  
   
   # select all E coli measurements in range
   span30d <-  libbs %>%
     filter(Date >= intervalstart & Date <= intervalend)
   
-  # calculate geometric mean and add it to column in df
+  # calculate 30-day geometric mean and add it to column in df
   libbs$Ecoli_30dGM[i] <- round(geomean(span30d$Meas, na.rm = TRUE), digits = 1)
   
 }
 
+libbs <- libbs %>%
+  select(BeachName, Date, Ecoli_1dGM, Ecoli_30dGM) %>%
+  distinct()
 
 
 # there is definitely a way to do this in a loop through all beaches....but i can't think of it now
 # so we will just separate and recombine
 
 
+# separate by beach for calculations
+shady <- minnetonka_long %>%
+  filter(BeachName == "Shady Oak Beach")
 
-# then group by Date
+
+for (i in 1:length(shady$Date)) {
+  
+  intervalstart <- as.POSIXct(shady$Date[i] - 30) # start 30 days before sampling date
+  intervalend <-  as.POSIXct(shady$Date[i])
+  
+  # select all E coli measurements for one day
+  oneday <-  shady %>%
+    filter(Date == intervalend)
+  
+  # calculate 1 day geometric mean and add it to column in df
+  shady$Ecoli_1dGM[i] <- round(geomean(oneday$Meas, na.rm = TRUE), digits = 1)
+  
+  
+  # select all E coli measurements in range
+  span30d <-  shady %>%
+    filter(Date >= intervalstart & Date <= intervalend)
+  
+  # calculate 30-day geometric mean and add it to column in df
+  shady$Ecoli_30dGM[i] <- round(geomean(span30d$Meas, na.rm = TRUE), digits = 1)
+  
+}
+
+shady <- shady %>%
+  select(BeachName, Date, Ecoli_1dGM, Ecoli_30dGM) %>%
+  distinct()
 
 
 
 
-x <- minnetonka
+minnetonka <- rbind(shady, libbs) # rewrites minntonka df
 
-## keep only needed cols----
+minnetonka <- minnetonka[!is.na(minnetonka$Ecoli_1dGM),] # remove any NAs in data
 
-x <-
-  x %>%
-  select(
-    BeachName, Date, SampleID, Meas
-  )
 
-## create df with all time intervals for each site----
+# x <- minnetonka_long
+# 
+# ## keep only needed cols----
+# 
+# x <-
+#   x %>%
+#   select(
+#     BeachName, Date, SampleID, Meas
+#   )
+# 
+# ## create df with all time intervals for each site----
+# 
+# y <-
+#   x %>%
+#   mutate(
+#     date_30d = interval(
+#       start = Date - 30,
+#       end = Date
+#     )
+#   )
+# 
+# y <-
+#   y %>%
+#   distinct(BeachName, Date, date_30d)
+# 
+# ## Cross join both df's----
+# 
+# Expected <- nrow(x) * nrow(y)
+# 
+# z <-
+#   cross_join(
+#     x, y
+#   )
+# 
+# nrow(z) == Expected # True
+# 
+# ## Keep only rows where beach name is the same and date within interval----
+# 
+# z <-
+#   z %>%
+#   filter(
+#     BeachName.x == BeachName.y
+#   )
+# 
+# ## Keep only rows where Date is within date interval----
+# 
+# z <-
+#   z %>%
+#   filter(
+#     Date.x %within% date_30d
+#   )
+# 
+# ## determine how many sample size for each date per site----
+# 
+# z <-
+#   z %>%
+#   mutate(
+#     n = n(),
+#     .by = c("BeachName.x", "date_30d")
+#   )
+# 
+# ## calculate product for each sampling date per site----
+# 
+# z <-
+#   z %>%
+#   mutate(
+#     product = prod(Meas),
+#     .by = c("BeachName.x", "date_30d")
+#   )
+# 
+# ## find the nth log of the products----
+# ### find the nth log
+# 
+# z <-
+#   z %>%
+#   mutate(
+#     Ecoli_30dGM = log(
+#       x = product,
+#       base = n
+#     ),
+#     .by = c("BeachName.x", "date_30d")
+#   )
+# 
+# ## Remove rows where Date.x does not match with Date.y to reduce to one meas----
+# ### per date per site
+# 
+# z <-
+#   z %>%
+#   filter(
+#     Date.x == Date.y
+#   )
+# 
+# ## keep only BeachName.x, Date.x, and Ecoli_30d----
+# 
+# z <-
+#   z %>%
+#   select(
+#     BeachName.x, Date.x, Ecoli_30dGM
+#   ) %>%
+#   unique() %>%
+#   arrange(BeachName.x, Date.x)
+# 
+# ## Rename cols----
+# 
+# z <-
+#   z %>%
+#   rename(
+#     BeachName = BeachName.x,
+#     Date = Date.x
+#   )
+# 
+# ## add to minnetonka df----
+# ### drop unneeded cols from z and minnetonka dfs
+# 
+# minnetonka_long <-
+#   minnetonka_long %>%
+#   select( # remove unneeded cols
+#     !c(SampleID, Meas, product, n)
+#   ) %>%
+#   distinct() # keep only unique rows
+# 
+# ### merge both df's into one
+# 
+# minnetonka_ong <-
+#   left_join(
+#     x = minnetonka,
+#     y = z,
+#     by = c("BeachName", "Date")
+#   )
+# 
 
-y <-
-  x %>%
-  mutate(
-    date_30d = interval(
-      start = Date - 30,
-      end = Date
-    )
-  )
 
-y <-
-  y %>%
-  distinct(BeachName, Date, date_30d)
-
-## Cross join both df's----
-
-Expected <- nrow(x) * nrow(y)
-
-z <-
-  cross_join(
-    x, y
-  )
-
-nrow(z) == Expected # True
-
-## Keep only rows where beach name is the same and date within interval----
-
-z <-
-  z %>%
-  filter(
-    BeachName.x == BeachName.y
-  )
-
-## Keep only rows where Date is within date interval----
-
-z <-
-  z %>%
-  filter(
-    Date.x %within% date_30d
-  )
-
-## determine how many sample size for each date per site----
-
-z <-
-  z %>%
-  mutate(
-    n = n(),
-    .by = c("BeachName.x", "date_30d")
-  )
-
-## calculate product for each sampling date per site----
-
-z <-
-  z %>%
-  mutate(
-    product = prod(Meas),
-    .by = c("BeachName.x", "date_30d")
-  )
-
-## find the nth log of the products----
-### find the nth log
-
-z <-
-  z %>%
-  mutate(
-    Ecoli_30dGM = log(
-      x = product,
-      base = n
-    ),
-    .by = c("BeachName.x", "date_30d")
-  )
-
-## Remove rows where Date.x does not match with Date.y to reduce to one meas----
-### per date per site
-
-z <-
-  z %>%
-  filter(
-    Date.x == Date.y
-  )
-
-## keep only BeachName.x, Date.x, and Ecoli_30d----
-
-z <-
-  z %>%
-  select(
-    BeachName.x, Date.x, Ecoli_30dGM
-  ) %>%
-  unique() %>%
-  arrange(BeachName.x, Date.x)
-
-## Rename cols----
-
-z <-
-  z %>%
-  rename(
-    BeachName = BeachName.x,
-    Date = Date.x
-  )
-
-## add to minnetonka df----
-### drop unneeded cols from z and minnetonka dfs
-
-minnetonka <-
-  minnetonka %>%
-  select( # remove unneeded cols
-    !c(SampleID, Meas, product, n)
-  ) %>%
-  distinct() # keep only unique rows
-
-### merge both df's into one
-
-minnetonka <-
-  left_join(
-    x = minnetonka,
-    y = z,
-    by = c("BeachName", "Date")
-  )
-
-# Note when beach closed due to high ecoli levels----
-## are there days when 1 day gm > 1260?
-
-minnetonka$Ecoli_1dGM > 1260 # none over 1260
-
-# are there days when 30 day gm > 126
-
-minnetonka$Ecoli_30dGM > 126 # none over 126
-
-## No beach closures due to E. coli levels
 
 
 
 # Standardize df to match master df----
 ## Add missing cols with single value----
 
-minnetonka <-
-  minnetonka %>%
+minnetonka <- minnetonka %>%
   mutate(
     Ecoli_units = "cfu",
     ClosureYN = "N",
@@ -471,12 +505,42 @@ minnetonka <-
     MonitoringOrg = "Minnetonka"
   )
 
+
+
+
+## find and label closures
+minnetonka <- minnetonka %>%  
+  mutate(
+    ClosureYN = if_else(
+      condition = Ecoli_1dGM > 1260,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    ClosureReason = if_else(
+      condition = Ecoli_1dGM > 1260,
+      true = "ecoli_1dayGM",
+      false = NA)
+  ) %>% 
+  mutate(
+    ClosureYN = if_else(
+      condition = Ecoli_30dGM > 126,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    ClosureReason = if_else(
+      condition = Ecoli_30dGM > 126,
+      true = "ecoli_30dayGM",
+      false = NA)
+  ) 
+    
+
 ## add cols with values based on another col----
 ## DOW for shady oak = 27008900
 ## DOWfor libbs lake = 27008500
 
-minnetonka <- # add DNRID for shady oak
-  minnetonka %>%
+minnetonka <- minnetonka %>%  # add DNRID for shady oak
   mutate(
     DOW = if_else(
       condition = BeachName == "Shady Oak",
@@ -485,8 +549,7 @@ minnetonka <- # add DNRID for shady oak
     )
   )
 
-minnetonka <- # add DNRID for Libbs Lake
-  minnetonka %>%
+minnetonka <- minnetonka %>%  # add DNRID for Libbs Lake
   mutate(
     DOW = if_else(
       condition = BeachName == "Libbs Lake",
