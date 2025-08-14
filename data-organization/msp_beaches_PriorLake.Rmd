@@ -1,0 +1,263 @@
+---
+title: "Prior Lake data organization code"
+author: "Becky Forgrave"
+date: "2025-08-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Packages to load --------------------------------------------------------
+
+library(tidyverse)
+library(googledrive)
+library(readxl)
+library(here)
+library(FSA) # for geomean() function
+
+```
+
+```{r download from Google Drive}
+
+ # loop through file names in folder -> load all as a list?
+
+drive_download( # download spreadsheet from google drive
+  file = as_id("https://docs.google.com/spreadsheets/d/13-xpPApZdTUHl4wTFUecicuZW5CA3ElR/edit?gid=1897849526#gid=1897849526"),
+  path = here("MSP-beaches_Minnetonka_raw.xlsx"),
+  overwrite = TRUE   # this is helpful to make sure folks don't accidentally use a modified local version of the file
+)
+
+path <- here("MSP-beaches_Minnetonka_raw.xlsx")
+
+```
+
+```{r laod in data}
+
+
+
+
+```
+
+```{r arrange and format colummns}
+
+
+
+
+
+
+
+
+
+pl <- pl_raw # create df to manipulate
+
+
+```
+
+```{r convert all values to numeric}
+
+# Look at format of dfs----
+
+str(pl)
+summary(pl)
+
+# Change values that are "<1" to 1--------
+
+Expected <- length(which(pl[,3:9] == "<1")) +  length(which(pl[,3:9] == "1")) # number of <1 and 1 in all data columns
+
+pl <- pl %>%
+  mutate(
+    across(
+      .cols = 3:9,
+      .fns = ~ str_replace(
+        string = .x,
+        pattern = "<1",
+        replacement = "1"
+      )
+    )
+  )
+
+# check that all converted correct
+length(which(pl[,3:9] == "1"))  == Expected # True
+
+
+
+# convert numeric columns from chr --> num
+
+pl <- pl %>%
+  mutate(
+    across(
+      .cols = 3:10,
+      .fns = as.numeric
+    )
+  )
+
+
+str(pl)
+summary(pl)
+
+```
+
+```{r calculate geometric means}
+
+
+## pivot longer--------------------
+
+pl_long <- pl %>%
+  pivot_longer(
+    cols = c(sample1, sample2),
+    names_to = "SampleID",
+    values_to = "Meas"
+  )
+
+
+
+# create new column to hold calculated values
+pl_long$Ecoli_1dGM <- 0
+pl_long$Ecoli_30dGM <- 0
+
+
+# separate by beach for calculations------------------------------
+
+sand <- pl_long %>%
+  filter(BeachName == "Sand Point Beach")
+
+  
+for (i in 1:length(libbs$Date)) {
+  
+  intervalstart <- as.POSIXct(sand$Date[i] - 30) # start 30 days before sampling date
+  intervalend <-  as.POSIXct(sand$Date[i])
+
+  # select all E coli measurements for one day
+  oneday <-  sand %>%
+    filter(Date == intervalend)
+  
+  # calculate 1 day geometric mean and add it to column in df
+  sand$Ecoli_1dGM[i] <- round(geomean(oneday$Meas, na.rm = TRUE), digits = 1)
+  
+  
+  # select all E coli measurements in range
+  span30d <-  sand %>%
+    filter(Date >= intervalstart & Date <= intervalend)
+  
+  # calculate 30-day geometric mean and add it to column in df
+  sand$Ecoli_30dGM[i] <- round(geomean(span30d$Meas, na.rm = TRUE), digits = 1)
+  
+}
+
+sand <- sand %>%
+  select(BeachName, Date, Ecoli_1dGM, Ecoli_30dGM) %>%
+  distinct()
+
+
+
+
+# separate by beach for calculations------------------
+
+shady <- minnetonka_long %>%
+  filter(BeachName == "Shady Oak Beach")
+
+
+for (i in 1:length(shady$Date)) {
+  
+  intervalstart <- as.POSIXct(shady$Date[i] - 30) # start 30 days before sampling date
+  intervalend <-  as.POSIXct(shady$Date[i])
+  
+  # select all E coli measurements for one day
+  oneday <-  shady %>%
+    filter(Date == intervalend)
+  
+  # calculate 1 day geometric mean and add it to column in df
+  shady$Ecoli_1dGM[i] <- round(geomean(oneday$Meas, na.rm = TRUE), digits = 1)
+  
+  
+  # select all E coli measurements in range
+  span30d <-  shady %>%
+    filter(Date >= intervalstart & Date <= intervalend)
+  
+  # calculate 30-day geometric mean and add it to column in df
+  shady$Ecoli_30dGM[i] <- round(geomean(span30d$Meas, na.rm = TRUE), digits = 1)
+  
+}
+
+shady <- shady %>%
+  select(BeachName, Date, Ecoli_1dGM, Ecoli_30dGM) %>%
+  distinct()
+
+
+
+
+minnetonka <- rbind(shady, libbs) # rewrites minntonka df
+
+minnetonka <- minnetonka[!is.na(minnetonka$Ecoli_1dGM),] # remove any NAs in data
+
+
+
+```
+
+```{r fill additional columns}
+
+# add columns to match master dataset--------------------
+pl <- pl %>%
+  mutate(
+    Ecoli_units = "",
+    ClosureYN = "N",
+    ClosureReason = NA,
+    MonitoringOrg = "PriorLake"
+    DOW = "70002600"  # Lower Prior Lake
+  )
+
+
+# fill in units column-----------------------------
+# 2002 - 2010 is in cfu
+# 2014 - 2015 is in mpn
+pl <- pl %>%
+   Ecoli_units = if_else(
+      condition = Date > "2014-01-01",
+      true = "cfu",
+      false = "mpn")
+  
+
+
+
+# find a label beach closures-------------------------------
+
+pl <- pl %>%
+  mutate(
+    ClosureYN = if_else(
+      condition = Ecoli_1dGM > 1260,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    ClosureReason = if_else(
+      condition = Ecoli_1dGM > 1260,
+      true = "ecoli_1dayGM",
+      false = NA)
+  ) %>% 
+  mutate(
+    ClosureYN = if_else(
+      condition = Ecoli_30dGM > 126,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    ClosureReason = if_else(
+      condition = Ecoli_30dGM > 126,
+      true = "ecoli_30dayGM",
+      false = NA)
+  ) 
+
+
+```
+
+```{r save data}
+
+# save to GitHub
+write_csv(pl, file = here("MSP-beaches_PriorLake_clean.csv"))
+
+# upload to Google Drive 
+
+
+```
+

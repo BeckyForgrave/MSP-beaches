@@ -32,7 +32,7 @@ path <- here("MSP-beaches_Minnetonka_raw.xlsx")
 
 sheetnames <- excel_sheets(path = path) # import sheet names 
 
-# I did have to manfully change the format a single value in the Libbs lake sheet in Excel from 2016 to 1/1/2106 so the loop worked
+# I did have to manually change the format a single value in the Libbs lake sheet in Excel from 2016 to 1/1/2106 so the loop worked
 
 
 ## loop through each sheet in excel doc, manipulating data in same way
