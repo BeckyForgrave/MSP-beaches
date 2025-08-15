@@ -154,7 +154,7 @@ minnetonka <-
     )
   )
 
-# Convert numeric to POSIXct----
+# Convert numeric to date----
 
 minnetonka <- # convert numeric date to date format
   minnetonka %>%
@@ -171,11 +171,15 @@ summary(minnetonka)
 ## One row did not convert correctly -> this is Libbs Lake during 2016
 ## No data, remove this row
 
+Expected <- nrow(minnetonka) - 1
+
 minnetonka <-
   minnetonka %>%
   drop_na(
     "sample1"
   )
+
+nrow(minnetonka) == Expected
 
 # To notes column, use language provided by BF for contamination and retesting
 
@@ -258,19 +262,11 @@ minnetonka <-
   )
 
 ## find the nth log of the products----
-### create a vector for the base for the log transformation-----
-
-v <- as.numeric(unique(minnetonka$n))
-
-### find the nth log
 
 minnetonka <-
   minnetonka %>%
   mutate(
-    Ecoli_1dGM = log(
-      x = product,
-      base = v
-    ),
+    Ecoli_1dGM = product^(1/n),
     .by = c(BeachName, Date)
   )
 
@@ -348,15 +344,11 @@ z <-
   )
 
 ## find the nth log of the products----
-### find the nth log
 
 z <-
   z %>%
   mutate(
-    Ecoli_30dGM = log(
-      x = product,
-      base = n
-    ),
+    Ecoli_30dGM = product^(1/n),
     .by = c("BeachName.x", "date_30d")
   )
 
@@ -408,13 +400,12 @@ minnetonka <-
   )
 
 # Note when beach closed due to high ecoli levels----
-## are there days when 1 day gm > 1260?
 
-minnetonka$Ecoli_1dGM > 1260 # none over 1260
+minnetonka %>% filter(Ecoli_1dGM > 1260) %>% nrow
+# There are 0 days when 1 day gm > 1260
 
-# are there days when 30 day gm > 126
-
-minnetonka$Ecoli_30dGM > 126 # none over 126
+minnetonka %>% filter(Ecoli_30dGM > 126) %>% nrow()
+# There are 5 days when 30 day gm > 126
 
 ## Do not need to note when beach closed due to E. coli levels
 
