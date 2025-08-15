@@ -1,0 +1,85 @@
+---
+title: "Beach_dataset_combine"
+author: "Becky Forgrave"
+date: "2025-08-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+library(mnsentinellakes)
+
+# clear workspace
+rm(list = ls())
+
+```
+
+```{r load data and adjust column names}
+
+beaches <- read.csv("Beaches-2004-2024-RC-MPRB-TRPD_050825.csv")
+
+# subset swim ponds with no dow
+beachesmissingDOW <- beaches %>%
+  filter(is.na(DNRID)) %>%
+  rename(DOW = DNRID)
+
+# fix DNRID and add zeroes
+beaches <- beaches %>%
+  filter(!is.na(DNRID)) %>%
+  mutate(DNRID = fixlakeid(DNRID)) %>%
+  mutate(DOW = paste0(DNRID, "00")) %>%
+  select(-DNRID)
+
+
+# Add swim ponds back in,
+beaches <- rbind(beaches, beachesmissingDOW)
+
+# fix date, rearrange columns
+beaches_formatted <- beaches %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d")) %>%
+  select(BeachName, DOW, Date, MonitoringOrg, Ecoli_1dGM, Ecoli_30dGM, Ecoli_units, ClosureYN, ClosureReason)
+
+
+# save
+write.csv(beaches_formatted, "beach_combined_Ecoli_081125.csv", row.names = FALSE)
+
+
+```
+
+# separate out Ramsey, MPRB and TRPD
+```{r}
+
+Ramsey <- beaches_formatted %>%
+  filter(MonitoringOrg == "RamseyCo")
+
+write.csv(Ramsey , "RamseyCo_081125.csv", row.names = FALSE)
+
+
+TRPD <- beaches_formatted %>%
+  filter(MonitoringOrg == "TRPD")
+
+write.csv(TRPD , "TRPD_081125.csv", row.names = FALSE)
+
+  
+
+
+MPRB_ecoli <- beaches_formatted %>%
+  filter(MonitoringOrg == "MPRB")
+
+write.csv(MPRB_ecoli, "MPRB_Ecoli_081125.csv", row.names = FALSE)
+
+
+
+MPRB_habs <- beaches%>%
+  filter(MonitoringOrg == "MPRB") %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d")) %>%
+  select(BeachName, DOW, Date, MonitoringOrg, Entero_avg_cfu, Microcystin_ugL, Cylindro_ugL, Anatoxin_ugL, ClosureYN, ClosureReason)
+
+write.csv(MPRB_habs, "MPRB_habs_081125.csv", row.names = FALSE)
+
+
+```
+
