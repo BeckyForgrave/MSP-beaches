@@ -15,45 +15,158 @@ library(googledrive)
 library(readxl)
 library(here)
 library(FSA) # for geomean() function
+library(janitor) # for row_to_names() fucntion
+
+
 
 ```
 
 ```{r download from Google Drive}
 
- # loop through file names in folder -> load all as a list?
-
-drive_download( # download spreadsheet from google drive
-  file = as_id("https://docs.google.com/spreadsheets/d/13-xpPApZdTUHl4wTFUecicuZW5CA3ElR/edit?gid=1897849526#gid=1897849526"),
-  path = here("MSP-beaches_Minnetonka_raw.xlsx"),
-  overwrite = TRUE   # this is helpful to make sure folks don't accidentally use a modified local version of the file
-)
-
-path <- here("MSP-beaches_Minnetonka_raw.xlsx")
-
-```
-
-```{r laod in data}
-
-
+# drive_download( # download spreadsheet from google drive
+#   file = as_id("https://drive.google.com/drive/folders/139YcvYH_dDmKBHu8UMGvYP3Y8ghrTTYl"),
+#   path = here("MSP-beaches_PriorLake1_raw.csv"),
+#   overwrite = TRUE   # this is helpful to make sure folks don't accidentally use a modified local version of the file
+# )
+# 
+# path <- here("MSP-beaches_PriorLake1_csv.xlsx")
+# 
+# # doesn't work
 
 
 ```
 
+```{r load in data from computer}
+
+# path <- here("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Received data/City of Prior Lake/spreadsheets")
+
+
+# knitr::opts_knit$set(root.dir = "G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches")
+
+
+path <- here("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Received data/City of Prior Lake/spreadsheets/")
+
+# can't get the above options working --> have to set path in each chunk below :/
+
+```
+# First dataset
 ```{r arrange and format colummns}
 
+setwd(path)
+
+prior2010 <- read.csv("Prior Lake Ecoli 2002-2010 tabular.csv") %>%
+  rename(Date = Sample.Date) %>%
+  rename(Watzl = Watzl.s) %>%
+  mutate(Date = as.Date(Date, format = "%m/%d/%Y")) 
 
 
+Expected <- length(which(prior2010[,2:3] == "<1")) +  length(which(prior2010 [,2:3] == "1")) # number of <1 and 1 in all data columns
+# also works with random <10 in data
+
+prior2010 <- prior2010 %>%
+  mutate(
+    across(
+      .cols = 2:3,
+      .fns = ~ str_replace(string = .x, pattern = "<1", replacement = "1")
+    )
+  )
+
+# check that all converted correct
+length(which(prior2010[,2:3] == "1"))  == Expected # True
+
+# convert to numeric (removes "not tested")
+prior2010 <- prior2010 %>%
+  mutate(
+    across(
+      .cols = 2:3,
+      .fns = as.numeric
+    )
+  )
 
 
+str(prior2010)
+summary(prior2010)
 
 
+# make long
+prior2010_long <- prior2010 %>%
+  pivot_longer(
+    cols = c(Sandpoint, Watzl),
+    names_to = "beach",
+    values_to = "ecoli"
+  )
+
+```
 
 
-pl <- pl_raw # create df to manipulate
+# Rest of data
+```{r load in data}
+
+setwd(path)
+
+path = "G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Received data/City of Prior Lake/spreadsheets/"
+
+# list of each file
+files <- list.files(path = path, 
+                           pattern = ".xlsx", 
+                           all.files = FALSE  # no hidden files or lock files (if something is open in excel)
+                           )
+
+priordata = lapply(files, read_xlsx(skip=1)) # reads all data in as a list --> not working
+  
+
+
+# unlist and append
+
+pl_raw <- data.frame()
+
+for (i in 1:length(files)) {
+
+    oneyear <- priordata[[i]] # select one year to manipulate
+  numcols <- ncol(oneyear) # get number of columns in dataset
+
+  # separate by beach
+  sandpoint  <- oneyear %>%
+    select(all_of(1:5)) %>%               # choose columnns for this beach
+    row_to_names(row_number = 1) %>%      # move row 1 to headers
+    rename(                               # remove spaces in column names
+      "Sample1" = "Sample 1",
+      "Sample2" = "Sample 2",
+      "GeoMean30" = "Geometric Mean") %>%
+    filter(!is.na(Sample1))  %>%                 # remove empty rows and notes rows
+    mutate(BeachName = "Sand Point Beach") %>%
+    mutate(Date = janitor::convert_to_date(Date)) # format date
+  
+  
+  watzl <- oneyear %>%
+    select(all_of(7:numcols)) %>% # select columns
+    row_to_names(row_number = 1) %>%      # move row 1 to headers
+    rename(                               # remove spaces in column names
+      "Sample1" = "Sample 1",
+      "Sample2" = "Sample 2",
+      "GeoMean30" = "Geometric Mean") %>%
+    filter(!is.na(Sample1))  %>%                 # remove empty rows and notes rows
+    mutate(BeachName = "Watzl's Beach") %>%
+    mutate(Date = janitor::convert_to_date(Date)) # format date
+  
+  
+  oneyear_recombined <- rbind(sandpoint, watzl)
+
+    # join to combined df
+    pl_raw  <- rbind(pl_raw , oneyear_recombined)
+}
+  
+
+# convert to numeric later (deal with <1)
+
+# sometimes date, sometimes sample date
+# also columns not always in same exact positon , just same relative position
 
 
 ```
 
+
+# combine
 ```{r convert all values to numeric}
 
 # Look at format of dfs----
