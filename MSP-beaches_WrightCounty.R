@@ -308,11 +308,11 @@ df <-
 # Note when beach closed due to high ecoli levels----
 ## are there days when 1 day gm > 1260?
 
-df$Ecoli_1dGM > 1260 # none over 1260
+df %>% filter(Ecoli_1dGM > 1260) %>% nrow
+# There are 0 days when 1 day gm > 1260
 
-# are there days when 30 day gm > 126
-
-df$Ecoli_30dGM > 126 # none over 126
+df %>% filter(Ecoli_30dGM > 126) %>% nrow()
+# There are 6 days when 30 day gm > 126
 
 ## Create a column to denote when 30 day geometric mean > 126----
 
@@ -321,6 +321,8 @@ df <-
   mutate(
     Threshold = Ecoli_30dGM > 126
   )
+
+length(which(df$Threshold==TRUE)) == 6 # True
 
 ## Add column to note that threshold over and that it was due to 30 day----
 
@@ -352,71 +354,56 @@ df <-
   df %>%
   mutate(
     Ecoli_units = "mpn",
-    Entero_avg_cfu = NA,
-    Microcystin_ugL = NA,
-    Cylindro_ugL = NA,
-    Anatoxin_ugL = NA,
     MonitoringOrg = "Wright County",
-    DNRID = NA
+    DOW = NA
   )
 
 ## add cols with values based on another col----
-## DNRID for Beebe = 86002300
-## DNRID for Bertram = 86007000
-## DNRID for Collinwood = 86029300
-## DNRID for Griffing = NA
-## DNRID for Pleasant = 86025100
-## DNRID for Schroeder = NA
-## DNRID for Struges = NA
+## DOW for Beebe = 86002300
+## DOW for Bertram = 86007000
+## DOW for Collinwood = 86029300
+## DOW for Griffing = NA
+## DOW for Pleasant = 86025100
+## DOW for Schroeder = NA
+## DOW for Struges = NA
 
-df <- # add DNRID for Beebe
+df <- # add DOW for Beebe
   df %>%
   mutate(
-    DNRID = if_else(
+    DOW = if_else(
       condition = BeachName == "Beebe",
       true = 86002300,
-      false = DNRID
+      false = DOW
     )
   )
 
-df <- # add DNRID for Bertram
+df <- # add DOW for Bertram
   df %>%
   mutate(
-    DNRID = if_else(
+    DOW = if_else(
       condition = BeachName == "Bertram",
       true = 86007000,
-      false = DNRID
+      false = DOW
     )
   )
 
-df <- # add DNRID for Collinwood
+df <- # add DOW for Collinwood
   df %>%
   mutate(
-    DNRID = if_else(
+    DOW = if_else(
       condition = BeachName == "Collinwood",
       true = 86029300,
-      false = DNRID
+      false = DOW
     )
   )
 
-df <- # add DNRID for Pleasant
+df <- # add DOW for Pleasant
   df %>%
   mutate(
-    DNRID = if_else(
+    DOW = if_else(
       condition = BeachName == "Pleasant",
       true = 86025100,
-      false = DNRID
-    )
-  )
-
-## Convert POSIXct to m/d/yyyy----
-
-df <-
-  df %>%
-  mutate(
-    Date = format(
-      Date,
-      "%m/%d/%Y"
+      false = DOW
     )
   )
 
@@ -427,4 +414,10 @@ write_csv(
   file = here("MSP-beaches_WrightCounty_clean.csv")
 )
 
+# Upload csv to Beaches Google Drive----
 
+drive_upload(
+  media = here("MSP-beaches_WrightCounty_clean.csv"),
+  path = "https://drive.google.com/drive/folders/1hM0Qh1wPfIoWRooyKnBGRF7MEVR9C51P",
+  name = "MSP-beaches_WrightCounty_clean.csv"
+)

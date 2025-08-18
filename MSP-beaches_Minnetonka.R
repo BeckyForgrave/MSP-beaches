@@ -407,7 +407,38 @@ minnetonka %>% filter(Ecoli_1dGM > 1260) %>% nrow
 minnetonka %>% filter(Ecoli_30dGM > 126) %>% nrow()
 # There are 5 days when 30 day gm > 126
 
-## Do not need to note when beach closed due to E. coli levels
+## Create a column to denote when 30 day geometric mean > 126----
+
+minnetonka <-
+  minnetonka %>%
+  mutate(
+    Threshold = Ecoli_30dGM > 126
+  )
+
+length(which(minnetonka$Threshold==TRUE)) == 5 # True
+
+## Add column to note that threshold over and that it was due to 1 day----
+
+minnetonka <-
+  minnetonka %>%
+  mutate(
+    ClosureYN = if_else(
+      condition = Threshold == TRUE,
+      true = "Y",
+      false = "N"
+    ),
+    ClosureReason = if_else(
+      condition = Threshold == TRUE,
+      true = "Ecoli_30dGM",
+      false = NA
+    )
+  )
+
+## Remove threshold and SampleID cols----
+
+minnetonka <-
+  minnetonka %>%
+  select(!Threshold)
 
 # Standardize df to match master df----
 ## Add missing cols with single value----
@@ -416,12 +447,6 @@ minnetonka <-
   minnetonka %>%
   mutate(
     Ecoli_units = "cfu",
-    Entero_avg_cfu = NA,
-    Microcystin_ugL = NA,
-    Cylindro_ugL = NA,
-    Anatoxin_ugL = NA,
-    ClosureYN = "N",
-    ClosureReason = NA,
     MonitoringOrg = "Minnetonka"
   )
 
@@ -432,7 +457,7 @@ minnetonka <-
 minnetonka <- # add DNRID for shady oak
   minnetonka %>%
   mutate(
-    DNRID = if_else(
+    DOW = if_else(
       condition = BeachName == "Shady Oak",
       true = 27008900,
       false = NA
@@ -442,21 +467,10 @@ minnetonka <- # add DNRID for shady oak
 minnetonka <- # add DNRID for Libbs Lake
   minnetonka %>%
   mutate(
-    DNRID = if_else(
+    DOW = if_else(
       condition = BeachName == "Libbs Lake",
       true = 27008500,
-      false = DNRID
-    )
-  )
-
-## Convert POSIXct to m/d/yyyy----
-
-minnetonka <-
-  minnetonka %>%
-  mutate(
-    Date = format(
-      Date,
-      "%m/%d/%Y"
+      false = DOW
     )
   )
 
@@ -468,3 +482,9 @@ write_csv(
 )
 
 # Upload to Google Drive
+
+drive_upload(
+  media = here("MSP-beaches_Minnetonka_clean.csv"),
+  path = "https://drive.google.com/drive/folders/1hM0Qh1wPfIoWRooyKnBGRF7MEVR9C51P",
+  name = "MSP-beaches_Minnetonka_clean.csv"
+)
