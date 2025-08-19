@@ -18,21 +18,22 @@ library(FSA) # for geomean() function
 library(janitor) # for row_to_names() fucntion
 
 
-
 ```
 
 ```{r download from Google Drive}
 
 # drive_download( # download spreadsheet from google drive
-#   file = as_id("https://drive.google.com/drive/folders/139YcvYH_dDmKBHu8UMGvYP3Y8ghrTTYl"),
-#   path = here("MSP-beaches_PriorLake1_raw.csv"),
-#   overwrite = TRUE   # this is helpful to make sure folks don't accidentally use a modified local version of the file
+#   file = as_id("https://drive.google.com/drive/folders/139YcvYH_dDmKBHu8UMGvYP3Y8ghrTTYl", #link to file on GDrive
+#   path = here("MSP-beaches_PriorLake1_raw.csv"), # what to call in GitHub directory
+#   overwrite = FALSE   
 # )
 # 
-# path <- here("MSP-beaches_PriorLake1_csv.xlsx")
+# path <- here("Prior Lake Ecoli 2002-2010 tabular.csv")
 # 
-# # doesn't work
-
+# # doesn't work --> maybe it is a UMN authentication issue?
+# 
+# 
+# https://drive.google.com/drive/folders/139YcvYH_dDmKBHu8UMGvYP3Y8ghrTTYl
 
 ```
 
@@ -102,18 +103,15 @@ prior2010_long <- prior2010 %>%
 # Rest of data
 ```{r load in data}
 
-setwd(path)
+filepath = "G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Received data/City of Prior Lake/spreadsheets/"
 
-path = "G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Received data/City of Prior Lake/spreadsheets/"
 
 # list of each file
-files <- list.files(path = path, 
+files <- list.files(path = filepath, 
                            pattern = ".xlsx", 
-                           all.files = FALSE  # no hidden files or lock files (if something is open in excel)
+                           all.files = FALSE,  # no hidden files or lock files (ie if something is open in excel)
+                          full.names = TRUE    # include file extension
                            )
-
-priordata = lapply(files, read_xlsx(skip=1)) # reads all data in as a list --> not working
-  
 
 
 # unlist and append
@@ -121,53 +119,52 @@ priordata = lapply(files, read_xlsx(skip=1)) # reads all data in as a list --> n
 pl_raw <- data.frame()
 
 for (i in 1:length(files)) {
-
-    oneyear <- priordata[[i]] # select one year to manipulate
+  
+  # if it isn't --> read in each file on by one
+  oneyear <- read_excel(files[i]) 
+  
   numcols <- ncol(oneyear) # get number of columns in dataset
 
+  lookup <- c(date = "sample_date", more_notes = "na")
+  
   # separate by beach
   sandpoint  <- oneyear %>%
-    select(all_of(1:5)) %>%               # choose columnns for this beach
-    row_to_names(row_number = 1) %>%      # move row 1 to headers
-    rename(                               # remove spaces in column names
-      "Sample1" = "Sample 1",
-      "Sample2" = "Sample 2",
-      "GeoMean30" = "Geometric Mean") %>%
-    filter(!is.na(Sample1))  %>%                 # remove empty rows and notes rows
-    mutate(BeachName = "Sand Point Beach") %>%
-    mutate(Date = janitor::convert_to_date(Date)) # format date
-  
+    select(all_of(1:5)) %>%           # select columns by position 
+    row_to_names(row_number = 1) %>%  # move row 1 to headers
+    clean_names() %>%                 # remove spaces in column names
+    filter(!is.na(sample_1))  %>%     # remove empty rows 
+    rename(any_of(lookup))   %>%         # rename columns if they match the pattern above
+    mutate(date = janitor::convert_to_date(date)) %>% # format date
+    mutate(beach_name = "Sand Point Beach")  # add beach name
+     
   
   watzl <- oneyear %>%
-    select(all_of(7:numcols)) %>% # select columns
-    row_to_names(row_number = 1) %>%      # move row 1 to headers
-    rename(                               # remove spaces in column names
-      "Sample1" = "Sample 1",
-      "Sample2" = "Sample 2",
-      "GeoMean30" = "Geometric Mean") %>%
-    filter(!is.na(Sample1))  %>%                 # remove empty rows and notes rows
-    mutate(BeachName = "Watzl's Beach") %>%
-    mutate(Date = janitor::convert_to_date(Date)) # format date
+    select(all_of(7:numcols)) %>%     # select columns by position 
+    row_to_names(row_number = 1) %>%  # move row 1 to headers
+    clean_names() %>%                 # remove spaces in column names
+    filter(!is.na(sample_1))  %>%     # remove empty rows 
+    rename(any_of(lookup))    %>%        # rename columns if they match the pattern above
+    mutate(date = janitor::convert_to_date(date)) %>% # format date
+    mutate(beach_name = "Watzl's Beach")   # add beach name
+
   
-  
-  oneyear_recombined <- rbind(sandpoint, watzl)
+    oneyear_recombined <- bind_rows(sandpoint, watzl)
 
     # join to combined df
-    pl_raw  <- rbind(pl_raw , oneyear_recombined)
+    pl_raw  <- bind_rows(pl_raw , oneyear_recombined)
 }
   
 
-# convert to numeric later (deal with <1)
-
-# sometimes date, sometimes sample date
-# also columns not always in same exact positon , just same relative position
-
+# need to figure out a way to combine the two notes columns into one
 
 ```
 
-
+####### START HERE
 # combine
 ```{r convert all values to numeric}
+
+
+pl <- pl_raw # make df to manipulate
 
 # Look at format of dfs----
 
@@ -211,6 +208,15 @@ summary(pl)
 
 ```
 
+
+# ADD PRE 2014 data back in
+
+
+
+
+
+
+
 ```{r calculate geometric means}
 
 
@@ -231,6 +237,9 @@ pl_long$Ecoli_30dGM <- 0
 
 
 # separate by beach for calculations------------------------------
+
+# change this to a loop. Make a list of beach names and loop throught it
+
 
 sand <- pl_long %>%
   filter(BeachName == "Sand Point Beach")
@@ -267,17 +276,17 @@ sand <- sand %>%
 
 # separate by beach for calculations------------------
 
-shady <- minnetonka_long %>%
-  filter(BeachName == "Shady Oak Beach")
+watzl <- pl_long %>%
+  filter(BeachName == "Watzl's Beach")
 
 
-for (i in 1:length(shady$Date)) {
+for (i in 1:length(watzl$Date)) {
   
-  intervalstart <- as.POSIXct(shady$Date[i] - 30) # start 30 days before sampling date
-  intervalend <-  as.POSIXct(shady$Date[i])
+  intervalstart <- as.POSIXct(watzl$Date[i] - 30) # start 30 days before sampling date
+  intervalend <-  as.POSIXct(watzl$Date[i])
   
   # select all E coli measurements for one day
-  oneday <-  shady %>%
+  oneday <-  watzl %>%
     filter(Date == intervalend)
   
   # calculate 1 day geometric mean and add it to column in df
