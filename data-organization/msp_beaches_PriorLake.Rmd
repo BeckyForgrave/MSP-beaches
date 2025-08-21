@@ -18,21 +18,22 @@ library(FSA) # for geomean() function
 library(janitor) # for row_to_names() fucntion
 
 
-
 ```
 
 ```{r download from Google Drive}
 
 # drive_download( # download spreadsheet from google drive
-#   file = as_id("https://drive.google.com/drive/folders/139YcvYH_dDmKBHu8UMGvYP3Y8ghrTTYl"),
-#   path = here("MSP-beaches_PriorLake1_raw.csv"),
-#   overwrite = TRUE   # this is helpful to make sure folks don't accidentally use a modified local version of the file
+#   file = as_id("https://drive.google.com/drive/folders/139YcvYH_dDmKBHu8UMGvYP3Y8ghrTTYl", #link to file on GDrive
+#   path = here("MSP-beaches_PriorLake1_raw.csv"), # what to call in GitHub directory
+#   overwrite = FALSE   
 # )
 # 
-# path <- here("MSP-beaches_PriorLake1_csv.xlsx")
+# path <- here("Prior Lake Ecoli 2002-2010 tabular.csv")
 # 
-# # doesn't work
-
+# # doesn't work --> maybe it is a UMN authentication issue?
+# 
+# 
+# https://drive.google.com/drive/folders/139YcvYH_dDmKBHu8UMGvYP3Y8ghrTTYl
 
 ```
 
@@ -113,20 +114,20 @@ prior2010_long <- prior2010_long %>%
 # Rest of data
 ```{r load in data}
 
-path = "G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Received data/City of Prior Lake/spreadsheets/"
+
+
+filepath = "G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Received data/City of Prior Lake/spreadsheets/"
 
 setwd(path)
 
 # list of each file
-filelist <- list.files(path = path, 
+
+
+files <- list.files(path = filepath, 
                            pattern = ".xlsx", 
-                           all.files = FALSE,  # no hidden files or lock files (if something is open in excel)
-                          full.names = TRUE) # I don't fully understand what this does, but it necessary to make the lines below work
-                          
-
-# priordata = lapply(files, read_xlsx(skip=1)) # reads all data in as one list --> not working
-#   
-
+                           all.files = FALSE,  # no hidden files or lock files (ie if something is open in excel)
+                          full.names = TRUE    # include file extension
+                           )
 
 
 # create empty data frame to put the data in
@@ -137,10 +138,14 @@ for (i in 1:length(files)) {
   oneyear <- read_excel(filelist[i]) # read in one file
   
   # renaming dictionary for inconsistent column naming
-  rename_lookup <- c("date" = "sample_date")  
+  rename_lookup <- c(date = "sample_date", more_notes = "na")  
+
+
+  oneyear <- read_excel(files[i]) 
   
   numcols <- ncol(oneyear) # get number of columns in dataset
 
+  
   # separate by beach
   sandpoint  <- oneyear %>%
     select(all_of(1:5)) %>%               # choose columnns for this beach
@@ -170,11 +175,17 @@ for (i in 1:length(files)) {
 # two notes columns (notes and na) --> not sure how to combine them
 
 
+# need to figure out a way to combine the two notes columns into one
+
+
 ```
 
-
+####### START HERE
 # combine
 ```{r convert all values to numeric}
+
+
+pl <- pl_raw # make df to manipulate
 
 # Look at format of dfs----
 
@@ -217,6 +228,15 @@ summary(pl)
 
 ```
 
+
+# ADD PRE 2014 data back in
+
+
+
+
+
+
+
 ```{r calculate geometric means}
 
 
@@ -236,14 +256,15 @@ pl_long$Ecoli_1dGM <- 0
 pl_long$Ecoli_30dGM <- 0
 
 
-# separate by beach for calculations------------------------------
-
 # make list of beaches to loop through
 beachlist <- unique(pl_long$beachName)
+
 
 # new dataframe to put data in
 pl <- data.frame()
 
+
+# loop through list of beaches and calcualte 30day GM
 for (i in 1:length(beachlist)) {
   
   # select one beach
@@ -282,7 +303,9 @@ for (i in 1:length(beachlist)) {
 }
 
 
+
 pl <- pl [!is.na(pl$Ecoli_1dGM),] # remove any NAs in data
+
 
 
 
