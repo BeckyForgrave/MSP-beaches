@@ -95,18 +95,17 @@ prior2010_long <- prior2010 %>%
   pivot_longer(
     cols = c(Sandpoint, Watzl),
     names_to = "beach_name",
-    values_to = "sample_1"
-  )
+    values_to = "sample_1")
 
 
-# rename to match other data --> not working  #########################
+# rename beaches to match other data  (can't find a tidyverse way to do this)
+prior2010_long$beach_name[prior2010_long$beach_name == "Sandpoint"] <-  "Sand Point Beach"
+prior2010_long$beach_name[prior2010_long$beach_name == "Watzl"] <-  "Watzl's Beach"
 
-rename_lookup <- c("Sandpoint" = "Sand Point Beach",
-                   "Watzl" = "Watzl's Beach")
-  
-  # needs to be filter() not selec()
-prior2010_long <- prior2010_long %>%
-  rename(any_of(rename_lookup)) %>%
+rm(prior2010)
+
+
+prior2010_long <- as.data.frame(prior2010_long)
 
 ```
 
@@ -126,25 +125,22 @@ setwd(path)
 files <- list.files(path = filepath, 
                            pattern = ".xlsx", 
                            all.files = FALSE,  # no hidden files or lock files (ie if something is open in excel)
-                          full.names = TRUE    # include file extension
+                           full.names = TRUE    # include file extension
                            )
 
 
 # create empty data frame to put the data in
 pl_raw <- data.frame()
 
+# renaming dictionary for inconsistent column naming below
+rename_lookup <- c(date = "sample_date", more_notes = "na")  
+
+
 for (i in 1:length(files)) {
   
-  oneyear <- read_excel(filelist[i]) # read in one file
-  
-  # renaming dictionary for inconsistent column naming
-  rename_lookup <- c(date = "sample_date", more_notes = "na")  
-
-
-  oneyear <- read_excel(files[i]) 
+  oneyear <- read_excel(files[i]) # read in one file
   
   numcols <- ncol(oneyear) # get number of columns in dataset
-
   
   # separate by beach
   sandpoint  <- oneyear %>%
@@ -163,7 +159,7 @@ for (i in 1:length(files)) {
     rename(any_of(rename_lookup)) %>% 
     filter(!is.na(sample_1))  %>%                 
     mutate(beach_name = "Watzl's Beach") %>%
-     mutate(date = janitor::convert_to_date(date))
+    mutate(date = janitor::convert_to_date(date))
   
     oneyear_recombined <- bind_rows(sandpoint, watzl)
 
@@ -172,10 +168,10 @@ for (i in 1:length(files)) {
 }
   
 
-# two notes columns (notes and na) --> not sure how to combine them
-
 
 # need to figure out a way to combine the two notes columns into one
+
+
 
 
 ```
@@ -185,11 +181,6 @@ for (i in 1:length(files)) {
 ```{r convert all values to numeric}
 
 
-pl <- pl_raw # make df to manipulate
-
-# Look at format of dfs----
-
-
 pl <- pl_raw # datafream to manipulate
 
 str(pl)
@@ -197,18 +188,18 @@ summary(pl)
 
 # Change values that are "<1" to 1--------
 
-Expected <- length(which(pl[,3:9] == "<1")) +  length(which(pl[,3:9] == "1")) # number of <1 and 1 in all data columns
+Expected <- length(which(pl[,2:5] == "<1")) +  length(which(pl[,2:5] == "1")) # number of <1 and 1 in all data columns
 
 pl <- pl %>%
   mutate(
     across(
-      .cols = 3:9,
+      .cols = 2:5,
       .fns = ~ str_replace(string = .x, pattern = "<1", replacement = "1")
     )
   )
 
 # check that all converted correct
-length(which(pl[,3:9] == "1"))  == Expected # True
+length(which(pl[,2:5] == "1"))  == Expected # True
 
 
 
@@ -217,22 +208,27 @@ length(which(pl[,3:9] == "1"))  == Expected # True
 pl <- pl %>%
   mutate(
     across(
-      .cols = 3:10,
-      .fns = as.numeric
-    )
+      .cols = 2:5,
+      .fns = as.numeric)
   )
 
 
 str(pl)
 summary(pl)
 
+
+
+
+# add old data to new data
+pl <- bind_rows(prior2010_long, pl)
+
+
+
+pl <- pl %>%
+  select(-average, -geometric_mean)
+
+
 ```
-
-
-# ADD PRE 2014 data back in
-
-
-
 
 
 
@@ -240,13 +236,13 @@ summary(pl)
 ```{r calculate geometric means}
 
 
-## pivot longer--------------------
+## pivot longer-------------------- # no longer works because too many other columns
 
 pl_long <- pl %>%
   pivot_longer(
-    cols = c(sample1, sample2),
-    names_to = "SampleID",
-    values_to = "Meas"
+    cols = c(sample_1, sample_2),
+    names_to = "sampleID",
+    values_to = "meas"
   )
 
 
@@ -257,54 +253,49 @@ pl_long$Ecoli_30dGM <- 0
 
 
 # make list of beaches to loop through
-beachlist <- unique(pl_long$beachName)
+beachlist <- unique(pl_long$beach_name)
 
 
 # new dataframe to put data in
-pl <- data.frame()
+pl_new <- data.frame()
 
 
 # loop through list of beaches and calcualte 30day GM
 for (i in 1:length(beachlist)) {
-  
+   i = 2
   # select one beach
   beach <- pl_long %>%
-  filter(beach_name == beachlist[i])
+    filter(beach_name == beachlist[i])
 
- # manipulate only taht beach to calculate geometric means 
+ # manipulate only that beach to calculate geometric means 
   for (i in 1:length(beach$date)) {
-    
-    intervalstart <- as.POSIXct(beach$Date[i] - 30) # start 30 days before sampling date
-    intervalend <-  as.POSIXct(beach$Date[i])
+     i = 4
+    intervalstart <- as.POSIXct(beach$date[i] - 30) # start 30 days before sampling date
+    intervalend <-  as.POSIXct(beach$date[i])
   
     # select all E coli measurements for one day
     oneday <-  beach %>%
-      filter(Date == intervalend)
+      filter(date == intervalend)
     
     # calculate 1 day geometric mean and add it to column in df
-    beach$Ecoli_1dGM[i] <- round(geomean(oneday$Meas, na.rm = TRUE), digits = 1)
+    beach$Ecoli_1dGM[i] <- round(geomean(oneday$meas, na.rm = TRUE), digits = 1)
     
     
     # select all E coli measurements in range
     span30d <-  beach %>%
-      filter(Date >= intervalstart & Date <= intervalend)
+      filter(date >= intervalstart & date <= intervalend)
     
     # calculate 30-day geometric mean and add it to column in df
-    beach$Ecoli_30dGM[i] <- round(geomean(span30d$Meas, na.rm = TRUE), digits = 1)
+    beach$Ecoli_30dGM[i] <- round(geomean(span30d$meas, na.rm = TRUE), digits = 1)
     
   }
 
-  # beach <- beach %>%
-  #   select(beachName, date, Ecoli_1dGM, Ecoli_30dGM) %>%
-  #   distinct()
-
-  pl <- bind_rows(pl, beach) # recombine beaches
+  pl_new <- bind_rows(pl_new, beach) # recombine beaches
 
 }
 
+##################### doesn't work for old data
 
-
-pl <- pl [!is.na(pl$Ecoli_1dGM),] # remove any NAs in data
 
 
 
