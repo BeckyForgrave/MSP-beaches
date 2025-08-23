@@ -14,70 +14,93 @@ library(mnsentinellakes)
 library(readxl)
 library(here)
 library(FSA) # for geomean() function
-library(janitor) # for row_to_names() function
+library(janitor) 
 
-here = here() # sets base directory as where the .rmd is saved
+here = here() # sets base directory as where this .Rmd file is saved
+
+# clean up workspace
+rm(list = ls())
 
 ```
 
-## RAMSEY COUNTY ####
-```{r load Ramsey data}
+## MPRB ####
+```{r load data}
 
+# get data from google drive
 setwd("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches")
 
-ramsey <- read.csv("./Received data/Ramsey County/RamseyCo_beaches_archiveddatathru2024.csv") %>%
+
+mprb_raw <- read_excel("./Received data/Minneapolis Parks Board/MPRB_beaches_compiled.xlsx") %>%
   janitor::clean_names()
 
-str(ramsey)
+str(mprb_raw)
 
-newcolnames = c(DOW = "dnrid",
-                beach = "lake",
-                tc = "total_coliform_mpn_100_m_l",
-                fc = "fecal_coliform_mpn_100_m_l",
-                ecoli = "e_coli_mpn_100_m_l", 
-                gm1day = "x1_day_gm_ecoli_mpn_100_m_l", 
-                gm30day = "x30_day_geom_mean_mpn_100_m_l",
-                closedYN = "beach_was_closed_y_n") 
-  
-  
+unique(mprb_raw$beach_name)
+
 
 # reformat and rearrange
-ramsey <- ramsey %>%
-  rename(any_of(newcolnames)) %>% 
-  mutate(DOW = paste0(fixlakeid(DOW), "00")) %>%        # convert DNR ID to DOW and pad with zeroes 
+mprb <- mprb_raw %>%
   mutate(date = as.Date(date, format = "%m/%d/%Y")) %>%
-  mutate(gm1day = as.numeric(gm1day)) %>%
-  mutate(units = "mpn/100mL") %>%
-  select(beach, DOW, date, ecoli, gm1day, gm30day, units, closedYN) %>%  # choose columns to move forward with
-  filter(!is.na(ecoli)) # remove empty rows
+  mutate(units = "cfu/100mL") %>%
+  select(beach_name, date, ecoli_sample_a, ecoli_sample_b, ecoli_dup, ecoli_30d_gm, units, beach_closure, closure_reason, notes)   # choose columns to move forward with
 
 
-str(ramsey)
-summary(ramsey)
+# remove <1s in data and convert to numeric
+expected <- length(which(mprb[,3:5] == "<1")) +  length(which(mprb[,3:5] == "1")) # get number of <1 and 1 in all data columns
+
+mprb <- mprb %>%
+  mutate(across(.cols = 3:5,
+                .fns = ~ str_replace(string = .x, pattern = "<1", replacement = "1"))) %>%
+  mutate(across(.cols = 3:5,
+                 .fns = as.numeric))
+
+length(which(mprb[,3:5] == "1"))  == expected # check that all converted correctly --> True
+
+
+
+str(mprb)
+summary(mprb)
+
+
+# join with beach list to get DOWs
+mprb_beaches <- read.csv("Beach_list_DOWs.csv") %>%
+  filter(monitoring_org == "MPRB") %>%
+  mutate(DOW = fixlakeid(DOW)) %>%
+  select(beach_name, lake, DOW)
+
+
+mprb <- left_join(mprb, mprb_beaches)
 
 ```
 
-```{r calculations with Ramsey data}
+```{r calculations with MPRB data}
 
 # create new column to hold calculated values
-ramsey$ecoli_1dGM <- 0
-ramsey$ecoli_30dGM <- 0
+mprb$ecoli_1dGM <- 0
+mprb$ecoli_30dGM <- 0
 
 
 # make list of beaches to loop through
-beachlist <- unique(ramsey$beach)
+beachlist <- unique(mprb$beach_name)
 
 
 # new dataframe to put data in
-ramsey_new <- data.frame()
+mprb_long <-  mprb %>%
+  pivot_longer(
+    cols = c(ecoli_sample_a, ecoli_sample_b, ecoli_dup),
+    names_to = "sampleID",
+    values_to = "ecoli"
+  )
 
+
+# NEED TO MAKE IT LONG --> TOO MANY COLUMNS
 
 # loop through list of beaches and calcualte 30day GM
 for (i in 1:length(beachlist)) {
  
   # select one beach
-  onebeach <- ramsey %>%
-    filter(beach == beachlist[i])
+  onebeach <- mprb %>%
+    filter(beach_name == beachlist[i])
 
  # manipulate only that beach to calculate geometric means 
   for (i in 1:length(onebeach$date)) {
@@ -102,20 +125,19 @@ for (i in 1:length(beachlist)) {
     
   }
 
-  ramsey_new <- bind_rows(ramsey_new, onebeach) # recombine beaches
+  mprb_new <- bind_rows(mprb_new, onebeach) # recombine beaches
 
 }
 
-ramsey_new$ecoli_30dGM == ramsey_new$gm30day # don't always match up
-ramsey_new$ecoli_1dGM == ramsey_new$gm1day
+mprb_new$ecoli_30d_gm == mprb_new$gm30day # don't always match up
 # do we use our calculations or theirs? --> ours to keep it consistent
 
 
 
-ramsey_new$closureYN <- 0
-ramsey_new$closure_reason <- ""
+mprb_new$closureYN <- 0
+mprb_new$closure_reason <- ""
 
-ramsey_new <- ramsey_new %>%
+mprb_new <- mprb_new %>%
   mutate(
     closureYN = if_else(
       condition = ecoli_1dGM > 1260,
@@ -142,21 +164,15 @@ ramsey_new <- ramsey_new %>%
   ) 
 
 
-ramsey_new$ClosureYN == ramsey_new$closedYN # not exaclty the same (adds 16 closures not in original data)
+mprb_new$closureYN == mprb_new$closedYN # not exaclty the same (adds 16 closures not in original data)
 
 
-ramsey_clean <- ramsey_new %>%
+mprb_clean <- mprb_new %>%
   select(beach, DOW, date, ecoli_1dGM, ecoli_30dGM, units, closureYN, closure_reason)
 
 
 # save to GitHub
-write_csv(ramsey_clean, file = here("./data-organization/individual-datasets/RamseyCo_clean_082225.csv"))
+write_csv(mprb_clean, file = here("./data-organization/individual-datasets/MPRB_clean_082225.csv"))
 
-# save to Google drive
-setwd("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches")
-
-write_csv(ramsey_clean, file = "./Processed data/RamseyCo_clean_082225.csv") 
-          
-          
 ```
 
