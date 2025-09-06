@@ -35,7 +35,7 @@ ecoli <- data %>%
   filter(!is.na(Ecoli_mpn100mL)) 
 
 
-min(Ecoli$Date) # 2004
+min(ecoli$Date) # 2004
 
 
 # separate by beach closure?
