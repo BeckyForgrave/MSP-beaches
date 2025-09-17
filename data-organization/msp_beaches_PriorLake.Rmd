@@ -1,0 +1,408 @@
+---
+title: "Prior Lake data organization code"
+author: "Becky Forgrave"
+date: "2025-08-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Packages to load --------------------------------------------------------
+
+library(tidyverse)
+library(googledrive)
+library(readxl)
+library(here)
+library(FSA) # for geomean() function
+library(janitor) # for row_to_names() fucntion
+
+
+```
+
+```{r download from Google Drive}
+
+# drive_download( # download spreadsheet from google drive
+#   file = as_id("https://drive.google.com/drive/folders/139YcvYH_dDmKBHu8UMGvYP3Y8ghrTTYl", #link to file on GDrive
+#   path = here("MSP-beaches_PriorLake1_raw.csv"), # what to call in GitHub directory
+#   overwrite = FALSE   
+# )
+# 
+# path <- here("Prior Lake Ecoli 2002-2010 tabular.csv")
+# 
+# # doesn't work --> maybe it is a UMN authentication issue?
+# 
+# 
+# https://drive.google.com/drive/folders/139YcvYH_dDmKBHu8UMGvYP3Y8ghrTTYl
+
+```
+
+```{r load in data from computer}
+
+# path <- here("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Received data/City of Prior Lake/spreadsheets")
+
+
+# knitr::opts_knit$set(root.dir = "G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches")
+
+
+path <- here("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Received data/City of Prior Lake/spreadsheets/")
+
+# can't get the above options working --> have to set path in each chunk below :/
+
+```
+# First dataset
+```{r arrange and format colummns}
+
+setwd(path)
+
+prior2010 <- read.csv("Prior Lake Ecoli 2002-2010 tabular.csv") %>%
+  rename(Date = Sample.Date) %>%
+  rename(Watzl = Watzl.s) %>%
+  mutate(Date = as.Date(Date, format = "%m/%d/%Y")) 
+
+
+Expected <- length(which(prior2010[,2:3] == "<1")) +  length(which(prior2010 [,2:3] == "1")) # number of <1 and 1 in all data columns
+# also works with random <10 in data
+
+prior2010 <- prior2010 %>%
+  mutate(
+    across(
+      .cols = 2:3,
+      .fns = ~ str_replace(string = .x, pattern = "<1", replacement = "1")
+    )
+  )
+
+# check that all converted correct
+length(which(prior2010[,2:3] == "1"))  == Expected # True
+
+# convert to numeric (removes "not tested")
+prior2010 <- prior2010 %>%
+  mutate(
+    across(
+      .cols = 2:3,
+      .fns = as.numeric
+    )
+  )
+
+
+str(prior2010)
+summary(prior2010)
+
+
+# make long
+prior2010_long <- prior2010 %>%
+  pivot_longer(
+    cols = c(Sandpoint, Watzl),
+    names_to = "beach",
+    values_to = "ecoli"
+  )
+
+```
+
+
+# Rest of data
+```{r load in data}
+
+filepath = "G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Received data/City of Prior Lake/spreadsheets/"
+
+
+# list of each file
+files <- list.files(path = filepath, 
+                           pattern = ".xlsx", 
+                           all.files = FALSE,  # no hidden files or lock files (ie if something is open in excel)
+                          full.names = TRUE    # include file extension
+                           )
+
+
+# unlist and append
+
+pl_raw <- data.frame()
+
+for (i in 1:length(files)) {
+  
+  # if it isn't --> read in each file on by one
+  oneyear <- read_excel(files[i]) 
+  
+  numcols <- ncol(oneyear) # get number of columns in dataset
+
+  lookup <- c(date = "sample_date", more_notes = "na")
+  
+  # separate by beach
+  sandpoint  <- oneyear %>%
+    select(all_of(1:5)) %>%           # select columns by position 
+    row_to_names(row_number = 1) %>%  # move row 1 to headers
+    clean_names() %>%                 # remove spaces in column names
+    filter(!is.na(sample_1))  %>%     # remove empty rows 
+    rename(any_of(lookup))   %>%         # rename columns if they match the pattern above
+    mutate(date = janitor::convert_to_date(date)) %>% # format date
+    mutate(beach_name = "Sand Point Beach")  # add beach name
+     
+  
+  watzl <- oneyear %>%
+    select(all_of(7:numcols)) %>%     # select columns by position 
+    row_to_names(row_number = 1) %>%  # move row 1 to headers
+    clean_names() %>%                 # remove spaces in column names
+    filter(!is.na(sample_1))  %>%     # remove empty rows 
+    rename(any_of(lookup))    %>%        # rename columns if they match the pattern above
+    mutate(date = janitor::convert_to_date(date)) %>% # format date
+    mutate(beach_name = "Watzl's Beach")   # add beach name
+
+  
+    oneyear_recombined <- bind_rows(sandpoint, watzl)
+
+    # join to combined df
+    pl_raw  <- bind_rows(pl_raw , oneyear_recombined)
+}
+  
+
+# need to figure out a way to combine the two notes columns into one
+
+```
+
+####### START HERE
+# combine
+```{r convert all values to numeric}
+
+
+pl <- pl_raw # make df to manipulate
+
+# Look at format of dfs----
+
+str(pl)
+summary(pl)
+
+# Change values that are "<1" to 1--------
+
+Expected <- length(which(pl[,2:5] == "<1")) +  length(which(pl[,2:5] == "1")) # number of <1 and 1 in all data columns
+
+pl <- pl %>%
+  mutate(
+    across(
+      .cols = 3:5,
+      .fns = ~ str_replace(
+        string = .x,
+        pattern = "<1",
+        replacement = "1"
+      )
+    )
+  )
+
+# check that all converted correct
+length(which(pl[,2:5] == "1"))  == Expected # True
+
+
+
+# convert numeric columns from chr --> num
+
+pl <- pl %>%
+  mutate(
+    across(
+      .cols = 2:5,
+      .fns = as.numeric
+    )
+  )
+
+pl<- pl %>%
+  mutate(units = "mpn")
+
+str(pl)
+summary(pl)
+
+```
+
+
+# ADD PRE 2014 data back in
+
+```{r}
+pl_early <- prior2010_long %>%
+  rename(date = Date) %>%
+  rename(sample_1 = ecoli) 
+
+pl_early$beach_name <- ""
+
+
+for(i in 1:length(pl_early$date)) {
+  if (pl_early$beach[i] == "Sandpoint") {
+    pl_early$beach_name[i] <- "Sand Point Beach"
+  } else {
+    pl_early$beach_name[i] <- "Watzl's Beach"
+  }
+  pl_early$average[i] <- pl_early$sample_1[i]
+}
+
+
+
+
+write_csv(pl_early, file = here("./data-organization/individual-datasets/PriorLake1_091725.csv"))
+
+
+```
+
+# too comlicated to get the code to combien them wokring --> just do the early stuff in exce;
+
+
+
+
+```{r calculate geometric means}
+
+
+## pivot longer--------------------
+
+pl_long <- pl %>%
+  pivot_longer(
+    cols = c(sample_1, sample_2),
+    names_to = "sampleID",
+    values_to = "meas"
+  )
+
+# create new column to hold calculated values
+pl_long$Ecoli_1dGM <- 0
+pl_long$Ecoli_30dGM <- 0
+
+
+# separate by beach for calculations------------------------------
+
+
+
+sand <- pl_long %>%
+  filter(beach_name == "Sand Point Beach")
+
+  
+for (i in 1:length(sand$date)) {
+  intervalstart <- as.POSIXct(sand$date[i] - 30) # start 30 days before sampling date
+  intervalend <-  as.POSIXct(sand$date[i])
+
+  # select all E coli measurements for one day
+  oneday <-  sand %>%
+    filter(date == intervalend)
+  
+  # calculate 1 day geometric mean and add it to column in df
+  sand$Ecoli_1dGM[i] <- round(geomean(oneday$meas, na.rm = TRUE), digits = 1)
+  
+  
+  # select all E coli measurements in range
+  span30d <-  sand %>%
+    filter(date >= intervalstart & date <= intervalend)
+  
+  # calculate 30-day geometric mean and add it to column in df
+  sand$Ecoli_30dGM[i] <- round(geomean(span30d$meas, na.rm = TRUE), digits = 1)
+  
+}
+
+sand <- sand %>%
+  select(beach_name, date, Ecoli_1dGM, Ecoli_30dGM) %>%
+  distinct()
+
+
+
+
+# separate by beach for calculations------------------
+
+watzl <- pl_long %>%
+  filter(beach_name == "Watzl's Beach")
+
+
+for (i in 1:length(watzl$date)) {
+  
+  intervalstart <- as.POSIXct(watzl$date[i] - 30) # start 30 days before sampling date
+  intervalend <-  as.POSIXct(watzl$date[i])
+  
+  # select all E coli measurements for one day
+  oneday <-  watzl %>%
+    filter(date == intervalend)
+  
+  # calculate 1 day geometric mean and add it to column in df
+  watzl$Ecoli_1dGM[i] <- round(geomean(oneday$meas, na.rm = TRUE), digits = 1)
+  
+  
+  # select all E coli measurements in range
+  span30d <-  watzl %>%
+    filter(date >= intervalstart & date <= intervalend)
+  
+  # calculate 30-day geometric mean and add it to column in df
+  watzl$Ecoli_30dGM[i] <- round(geomean(span30d$meas, na.rm = TRUE), digits = 1)
+  
+}
+
+watzl <-  watzl %>%
+  select(beach_name, date, Ecoli_1dGM, Ecoli_30dGM) %>%
+  distinct()
+
+
+
+
+priorlake <- rbind(sand, watzl) # rewrites minntonka df
+
+priorlake <- priorlake[!is.na(priorlake$Ecoli_1dGM),] # remove any NAs in data
+
+
+
+```
+
+```{r fill additional columns}
+
+# add columns to match master dataset--------------------
+priorlake  <- priorlake  %>%
+  mutate(
+    Ecoli_units = "",
+    ClosureYN = "N",
+    ClosureReason = NA,
+    MonitoringOrg = "PriorLake",
+    DOW = "70002600",  # Lower Prior Lake
+    units = "mpn"
+  )
+
+
+# fill in units column-----------------------------
+# # 2002 - 2010 is in cfu
+# # 2014 - 2015 is in mpn
+# priorlake  <- priorlake  %>%
+#    Ecoli_units = if_else(
+#       condition = date > "2014-01-01",
+#       true = "cfu",
+#       false = "mpn")
+#   
+
+
+
+# find a label beach closures-------------------------------
+
+priorlake  <- priorlake  %>%
+  mutate(
+    ClosureYN = if_else(
+      condition = Ecoli_1dGM > 1260,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    ClosureReason = if_else(
+      condition = Ecoli_1dGM > 1260,
+      true = "ecoli_1dayGM",
+      false = NA)
+  ) %>% 
+  mutate(
+    ClosureYN = if_else(
+      condition = Ecoli_30dGM > 126,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    ClosureReason = if_else(
+      condition = Ecoli_30dGM > 126,
+      true = "ecoli_30dayGM",
+      false = NA)
+  ) 
+
+
+```
+
+```{r save data}
+
+# save to GitHub
+write_csv(priorlake, file = here("./data-organization/individual-datasets/PriorLake2_091725.csv"))
+
+# upload to Google Drive 
+
+
+```
+
