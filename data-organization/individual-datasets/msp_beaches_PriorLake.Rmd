@@ -50,15 +50,16 @@ path <- here("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 
 # can't get the above options working --> have to set path in each chunk below :/
 
 ```
+
 # First dataset
 ```{r arrange and format colummns}
 
 setwd(path)
 
 prior2010 <- read.csv("Prior Lake Ecoli 2002-2010 tabular.csv") %>%
-  rename(Date = Sample.Date) %>%
+  rename(date = Sample.Date) %>%
   rename(Watzl = Watzl.s) %>%
-  mutate(Date = as.Date(Date, format = "%m/%d/%Y")) 
+  mutate(date = as.Date(date, format = "%m/%d/%Y")) 
 
 
 Expected <- length(which(prior2010[,2:3] == "<1")) +  length(which(prior2010 [,2:3] == "1")) # number of <1 and 1 in all data columns
@@ -93,9 +94,18 @@ summary(prior2010)
 prior2010_long <- prior2010 %>%
   pivot_longer(
     cols = c(Sandpoint, Watzl),
-    names_to = "beach",
-    values_to = "ecoli"
-  )
+    names_to = "beach_name",
+    values_to = "sample_1")
+
+
+# rename beaches to match other data  (can't find a tidyverse way to do this)
+prior2010_long$beach_name[prior2010_long$beach_name == "Sandpoint"] <-  "Sand Point Beach"
+prior2010_long$beach_name[prior2010_long$beach_name == "Watzl"] <-  "Watzl's Beach"
+
+rm(prior2010)
+
+
+prior2010_long <- as.data.frame(prior2010_long)
 
 ```
 
@@ -103,50 +113,53 @@ prior2010_long <- prior2010 %>%
 # Rest of data
 ```{r load in data}
 
+
+
 filepath = "G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Received data/City of Prior Lake/spreadsheets/"
 
+setwd(path)
 
 # list of each file
+
+
 files <- list.files(path = filepath, 
                            pattern = ".xlsx", 
                            all.files = FALSE,  # no hidden files or lock files (ie if something is open in excel)
-                          full.names = TRUE    # include file extension
+                           full.names = TRUE    # include file extension
                            )
 
 
-# unlist and append
-
+# create empty data frame to put the data in
 pl_raw <- data.frame()
+
+# renaming dictionary for inconsistent column naming below
+rename_lookup <- c(date = "sample_date", more_notes = "na")  
+
 
 for (i in 1:length(files)) {
   
-  # if it isn't --> read in each file on by one
-  oneyear <- read_excel(files[i]) 
+  oneyear <- read_excel(files[i]) # read in one file
   
   numcols <- ncol(oneyear) # get number of columns in dataset
-
-  lookup <- c(date = "sample_date", more_notes = "na")
   
   # separate by beach
   sandpoint  <- oneyear %>%
-    select(all_of(1:5)) %>%           # select columns by position 
-    row_to_names(row_number = 1) %>%  # move row 1 to headers
-    clean_names() %>%                 # remove spaces in column names
-    filter(!is.na(sample_1))  %>%     # remove empty rows 
-    rename(any_of(lookup))   %>%         # rename columns if they match the pattern above
-    mutate(date = janitor::convert_to_date(date)) %>% # format date
-    mutate(beach_name = "Sand Point Beach")  # add beach name
-     
+    select(all_of(1:5)) %>%               # choose columnns for this beach
+    row_to_names(row_number = 1) %>%      # move row 1 to headers
+    janitor::clean_names() %>%            # convert all names to tidy format (no spaces, no caps)
+    rename(any_of(rename_lookup)) %>%     # rename columns using lookup above
+    filter(!is.na(sample_1))  %>%         # remove empty rows and notes rows
+    mutate(beach_name = "Sand Point Beach") %>%    # add column for beach name
+    mutate(date = janitor::convert_to_date(date)) # format date
   
   watzl <- oneyear %>%
-    select(all_of(7:numcols)) %>%     # select columns by position 
-    row_to_names(row_number = 1) %>%  # move row 1 to headers
-    clean_names() %>%                 # remove spaces in column names
-    filter(!is.na(sample_1))  %>%     # remove empty rows 
-    rename(any_of(lookup))    %>%        # rename columns if they match the pattern above
-    mutate(date = janitor::convert_to_date(date)) %>% # format date
-    mutate(beach_name = "Watzl's Beach")   # add beach name
-
+    select(all_of(7:numcols)) %>%   
+    row_to_names(row_number = 1) %>%      
+    janitor::clean_names() %>%
+    rename(any_of(rename_lookup)) %>% 
+    filter(!is.na(sample_1))  %>%                 
+    mutate(beach_name = "Watzl's Beach") %>%
+    mutate(date = janitor::convert_to_date(date))
   
     oneyear_recombined <- bind_rows(sandpoint, watzl)
 
@@ -155,7 +168,11 @@ for (i in 1:length(files)) {
 }
   
 
+
 # need to figure out a way to combine the two notes columns into one
+
+
+
 
 ```
 
@@ -164,9 +181,7 @@ for (i in 1:length(files)) {
 ```{r convert all values to numeric}
 
 
-pl <- pl_raw # make df to manipulate
-
-# Look at format of dfs----
+pl <- pl_raw # datafream to manipulate
 
 str(pl)
 summary(pl)
@@ -178,12 +193,14 @@ Expected <- length(which(pl[,2:5] == "<1")) +  length(which(pl[,2:5] == "1")) # 
 pl <- pl %>%
   mutate(
     across(
-      .cols = 3:5,
+      .cols = 2:5,
       .fns = ~ str_replace(
         string = .x,
         pattern = "<1",
         replacement = "1"
       )
+      .cols = 2:5,
+      .fns = ~ str_replace(string = .x, pattern = "<1", replacement = "1")
     )
   )
 
@@ -208,7 +225,20 @@ pl<- pl %>%
 str(pl)
 summary(pl)
 
+
+
+
+# add old data to new data
+pl <- bind_rows(prior2010_long, pl)
+
+
+
+pl <- pl %>%
+  select(-average, -geometric_mean)
+
+
 ```
+
 
 
 # ADD PRE 2014 data back in
@@ -243,10 +273,11 @@ write_csv(pl_early, file = here("./data-organization/individual-datasets/PriorLa
 
 
 
+
 ```{r calculate geometric means}
 
 
-## pivot longer--------------------
+## pivot longer-------------------- # no longer works because too many other columns
 
 pl_long <- pl %>%
   pivot_longer(
@@ -260,9 +291,8 @@ pl_long$Ecoli_1dGM <- 0
 pl_long$Ecoli_30dGM <- 0
 
 
+
 # separate by beach for calculations------------------------------
-
-
 
 sand <- pl_long %>%
   filter(beach_name == "Sand Point Beach")
@@ -286,8 +316,8 @@ for (i in 1:length(sand$date)) {
   
   # calculate 30-day geometric mean and add it to column in df
   sand$Ecoli_30dGM[i] <- round(geomean(span30d$meas, na.rm = TRUE), digits = 1)
-  
 }
+  
 
 sand <- sand %>%
   select(beach_name, date, Ecoli_1dGM, Ecoli_30dGM) %>%
@@ -349,7 +379,9 @@ priorlake  <- priorlake  %>%
     ClosureReason = NA,
     MonitoringOrg = "PriorLake",
     DOW = "70002600",  # Lower Prior Lake
-    units = "mpn"
+    units = "mpn",
+    DOW = "70002600"  # Lower Prior Lake
+
   )
 
 

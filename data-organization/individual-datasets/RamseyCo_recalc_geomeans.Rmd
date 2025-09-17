@@ -1,0 +1,162 @@
+---
+title: "recalc geometeric mean"
+author: "Becky Forgrave"
+date: "2025-08-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(googledrive)
+library(mnsentinellakes)
+library(readxl)
+library(here)
+library(FSA) # for geomean() function
+library(janitor) # for row_to_names() function
+
+here = here() # sets base directory as where the .rmd is saved
+
+```
+
+## RAMSEY COUNTY ####
+```{r load Ramsey data}
+
+setwd("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches")
+
+ramsey <- read.csv("./Received data/Ramsey County/RamseyCo_beaches_archiveddatathru2024.csv") %>%
+  janitor::clean_names()
+
+str(ramsey)
+
+newcolnames = c(DOW = "dnrid",
+                beach = "lake",
+                tc = "total_coliform_mpn_100_m_l",
+                fc = "fecal_coliform_mpn_100_m_l",
+                ecoli = "e_coli_mpn_100_m_l", 
+                gm1day = "x1_day_gm_ecoli_mpn_100_m_l", 
+                gm30day = "x30_day_geom_mean_mpn_100_m_l",
+                closedYN = "beach_was_closed_y_n") 
+  
+  
+
+# reformat and rearrange
+ramsey <- ramsey %>%
+  rename(any_of(newcolnames)) %>% 
+  mutate(DOW = paste0(fixlakeid(DOW), "00")) %>%        # convert DNR ID to DOW and pad with zeroes 
+  mutate(date = as.Date(date, format = "%m/%d/%Y")) %>%
+  mutate(gm1day = as.numeric(gm1day)) %>%
+  mutate(units = "mpn/100mL") %>%
+  select(beach, DOW, date, ecoli, gm1day, gm30day, units, closedYN) %>%  # choose columns to move forward with
+  filter(!is.na(ecoli)) # remove empty rows
+
+
+str(ramsey)
+summary(ramsey)
+
+```
+
+```{r calculations with Ramsey data}
+
+# create new column to hold calculated values
+ramsey$ecoli_1dGM <- 0
+ramsey$ecoli_30dGM <- 0
+
+
+# make list of beaches to loop through
+beachlist <- unique(ramsey$beach)
+
+
+# new dataframe to put data in
+ramsey_new <- data.frame()
+
+
+# loop through list of beaches and calcualte 30day GM
+for (i in 1:length(beachlist)) {
+ 
+  # select one beach
+  onebeach <- ramsey %>%
+    filter(beach == beachlist[i])
+
+ # manipulate only that beach to calculate geometric means 
+  for (i in 1:length(onebeach$date)) {
+
+    intervalstart <- as.POSIXct(onebeach$date[i] - 30) # start 30 days before sampling date
+    intervalend <-  as.POSIXct(onebeach$date[i])
+  
+    # select all E coli measurements for one day
+    oneday <-  onebeach %>%
+      filter(date == intervalend)
+    
+    # calculate 1 day geometric mean and add it to column in df
+    onebeach$ecoli_1dGM[i] <- round(geomean(oneday$ecoli, na.rm = TRUE), digits = 1)
+    
+    
+    # select all E coli measurements in range
+    span30d <-  onebeach %>%
+      filter(date >= intervalstart & date <= intervalend)
+    
+    # calculate 30-day geometric mean and add it to column in df
+    onebeach$ecoli_30dGM[i] <- round(geomean(span30d$ecoli, na.rm = TRUE), digits = 1)
+    
+  }
+
+  ramsey_new <- bind_rows(ramsey_new, onebeach) # recombine beaches
+
+}
+
+ramsey_new$ecoli_30dGM == ramsey_new$gm30day # don't always match up
+ramsey_new$ecoli_1dGM == ramsey_new$gm1day
+# do we use our calculations or theirs? --> ours to keep it consistent
+
+
+
+ramsey_new$closureYN <- 0
+ramsey_new$closure_reason <- ""
+
+ramsey_new <- ramsey_new %>%
+  mutate(
+    closureYN = if_else(
+      condition = ecoli_1dGM > 1260,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    closure_reason = if_else(
+      condition = ecoli_1dGM > 1260,
+      true = "ecoli_1dayGM",
+      false = NA)
+  ) %>% 
+  mutate(
+    closureYN = if_else(
+      condition = ecoli_30dGM > 126,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    closure_reason = if_else(
+      condition = ecoli_30dGM > 126,
+      true = "ecoli_30dayGM",
+      false = NA)
+  ) 
+
+
+ramsey_new$ClosureYN == ramsey_new$closedYN # not exaclty the same (adds 16 closures not in original data)
+
+
+ramsey_clean <- ramsey_new %>%
+  select(beach, DOW, date, ecoli_1dGM, ecoli_30dGM, units, closureYN, closure_reason)
+
+
+# save to GitHub
+write_csv(ramsey_clean, file = here("./data-organization/individual-datasets/RamseyCo_clean_082225.csv"))
+
+# save to Google drive
+setwd("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches")
+
+write_csv(ramsey_clean, file = "./Processed data/RamseyCo_clean_082225.csv") 
+          
+          
+```
+
