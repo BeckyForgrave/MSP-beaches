@@ -1,0 +1,95 @@
+---
+title: "Combine beaches"
+author: "Becky Forgrave"
+date: "2025-09-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(googledrive)
+library(readxl)
+library(here)
+library(mnsentinellakes)
+library(FSA) # for geomean() function
+library(janitor) # for row_to_names() fucntion
+
+# clear workspace
+rm(list = ls())
+```
+
+```{r load data}
+
+setwd("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Processed data")
+
+trpd <- read.csv("TRPD_081125.csv") %>%
+  # mutate(DOW = fixlakeid(DOW)) %>% # doesn't work for NAs
+  mutate(DOW = as.character(DOW)) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+
+mprb <- read.csv("MPRB_Ecoli_081125.csv") %>%
+  mutate(DOW = as.character(DOW)) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+
+ramco <- read.csv("RamseyCo_081125.csv") %>%
+  mutate(DOW = as.character(DOW)) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+
+
+# henCo
+
+dakco  <- read.csv("DakotaCo_092325.csv") %>%
+  mutate(DOW = as.character(DOW)) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+  
+blaine <- read.csv("Blaine_081125_bf.csv") %>%
+  mutate(DOW = as.character(DOW)) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+
+burnsville <- read.csv("MSP-beaches_Burnsville_clean.csv") %>%
+  mutate(DOW = as.character(DOW)) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+
+minnetonka <- read.csv("MSP-beaches_Minnetonka_clean.csv") %>%
+  mutate(DOW = as.character(DOW)) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+
+woodbury <- read.csv("Woodbury_091725.csv") %>%
+  mutate(DOW = as.character(DOW)) %>%
+  mutate(date = as.Date(date, format = "%Y-%m-%d")) %>%
+  rename(Date = date) 
+
+lakeville <- read.csv("Lakeville_091825.csv") %>%
+  mutate(DOW = as.character(DOW)) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+
+
+
+
+priorlake1 <- read.csv("PriorLake1_091725_fixed.csv") %>%
+  rename(Date = date) %>%
+  rename(BeachName = beach_name) %>%
+  mutate(DOW = as.character(DOW)) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+
+priorlake2 <- read.csv("PriorLake2_091725.csv") %>%
+  rename(Date = date) %>%
+  rename(BeachName = beach_name) %>%
+  mutate(DOW = as.character(DOW)) %>%
+  mutate(Date = as.Date(Date, format = "%m/%d/%Y"))
+
+priorlake <- rbind(priorlake1, priorlake2)
+
+rm(priorlake1, priorlake2)
+
+
+```
+
+```{r combine}
+
+all_beaches <- rbind(blaine, burnsville, dakco, lakeville, minnetonka, mprb, priorlake, ramco, trpd, woodbury)
+
+```
+

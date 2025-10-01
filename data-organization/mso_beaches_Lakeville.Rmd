@@ -1,0 +1,152 @@
+---
+title: "msp_beaches_lakeville"
+author: "Becky Forgrave"
+date: "2025-09-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(googledrive)
+library(readxl)
+library(here)
+library(FSA) # for geomean() function
+library(janitor) # for row_to_names() fucntion
+```
+
+```{r load data}
+
+setwd("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Received data/City of Lakeville/")
+
+lv <- read.csv("Lakeville_reorganized.csv") %>%
+  mutate(Date = as.Date(Date, format = "%m/%d/%Y")) 
+
+str(lv )
+summary(lv )
+
+```
+
+```{r calculate geometric means}
+
+# create new column to hold calculated values
+lv$Ecoli_1dGM <-0
+lv$Ecoli_30dGM <- 0
+
+lv_new <- data.frame()
+
+# loop through list of beaches
+lvbeachlist <- unique(lv$BeachName)
+
+for (i in 1:length(lvbeachlist)) {
+  
+beach <- lv %>%
+  filter(BeachName == lvbeachlist[i])
+
+
+  # loop through each day
+  for (i in 1:length(beach$Date)) {
+    intervalstart <- as.POSIXct(beach$Date[i] - 30) # start 30 days before sampling date
+    intervalend <-  as.POSIXct(beach$Date[i])
+  
+    # select all E coli measurements for one day
+    oneday <-  beach %>%
+      filter(Date == intervalend)
+    
+    # calculate 1 day geometric mean and add it to column in df
+    beach$Ecoli_1dGM[i] <- round(geomean(oneday$Ecoli, na.rm = TRUE), digits = 1)
+    
+    # select all E coli measurements in 30 day range
+    span30d <-  beach %>%
+      filter(Date >= intervalstart & Date <= intervalend)
+    
+    # calculate 30-day geometric mean and add it to column in df
+    beach$Ecoli_30dGM[i] <- round(geomean(span30d$Ecoli, na.rm = TRUE), digits = 1)
+    
+  }
+
+lv_new <- rbind(lv_new, beach)
+
+}
+
+
+```
+
+
+```{r fill additional columns}
+
+# add columns to match master dataset--------------------
+lakeville <- lv_new %>%
+  filter(!is.na(Ecoli_1dGM)) %>%
+  mutate(
+    DOW = "",
+    ClosureYN = "N",
+    ClosureReason = NA,
+    MonitoringOrg = "Lakeville") %>%
+  rename(Ecoli_units = units)
+
+# add DOWs--------------------
+
+lakeville$DOW <- ""
+
+for(i in 1:length(lakeville$BeachName)) {
+  if(lakeville$BeachName[i] == "Antlers") {
+    lakeville$DOW[i] = "19002601"  # Lake Marion (East Bay)
+  } else if(lakeville$BeachName[i] == "Orchard") {
+    lakeville$DOW[i] = "19003100"
+  } else if(lakeville$BeachName[i] == "Valley") { # Valley Lake / Unnamed
+    lakeville$DOW[i] = "19034800"
+  }
+  
+}
+  
+
+# find a label beach closures-------------------------------
+
+lakeville  <- lakeville   %>%
+  mutate(
+    ClosureYN = if_else(
+      condition = Ecoli_1dGM > 1260,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    ClosureReason = if_else(
+      condition = Ecoli_1dGM > 1260,
+      true = "ecoli_1dayGM",
+      false = NA)
+  ) %>% 
+  mutate(
+    ClosureYN = if_else(
+      condition = Ecoli_30dGM > 126,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    ClosureReason = if_else(
+      condition = Ecoli_30dGM > 126,
+      true = "ecoli_30dayGM",
+      false = NA)
+  ) 
+
+# rearrange columns
+lakeville <- lakeville %>%
+  select(BeachName, DOW, Date, MonitoringOrg, Ecoli_1dGM, Ecoli_30dGM, Ecoli_units, ClosureYN, ClosureReason)
+
+```
+
+```{r save data}
+
+# save to GitHub
+# write_csv(lakeville, file = here("./data-organization/individual-datasets/Lakeville_091825.csv"))
+
+
+
+# upload to Google Drive 
+setwd("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Processed data/")
+
+write.csv(lakeville, file = "Lakeville_091825.csv", row.names = FALSE)
+
+```
+

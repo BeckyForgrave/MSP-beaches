@@ -135,7 +135,7 @@ for (i in 1:length(files)) {
     filter(!is.na(sample_1))  %>%     # remove empty rows 
     rename(any_of(lookup))   %>%         # rename columns if they match the pattern above
     mutate(date = janitor::convert_to_date(date)) %>% # format date
-    mutate(beach_name = "Sand Point Beach")  # add beach name
+    mutate(beach_name = "Sand Point")  # add beach name
      
   
   watzl <- oneyear %>%
@@ -145,7 +145,7 @@ for (i in 1:length(files)) {
     filter(!is.na(sample_1))  %>%     # remove empty rows 
     rename(any_of(lookup))    %>%        # rename columns if they match the pattern above
     mutate(date = janitor::convert_to_date(date)) %>% # format date
-    mutate(beach_name = "Watzl's Beach")   # add beach name
+    mutate(beach_name = "Watzl's")   # add beach name
 
   
     oneyear_recombined <- bind_rows(sandpoint, watzl)
@@ -223,9 +223,9 @@ pl_early$beach_name <- ""
 
 for(i in 1:length(pl_early$date)) {
   if (pl_early$beach[i] == "Sandpoint") {
-    pl_early$beach_name[i] <- "Sand Point Beach"
+    pl_early$beach_name[i] <- "Sand Point"
   } else {
-    pl_early$beach_name[i] <- "Watzl's Beach"
+    pl_early$beach_name[i] <- "Watzl's"
   }
   pl_early$average[i] <- pl_early$sample_1[i]
 }
@@ -234,6 +234,7 @@ for(i in 1:length(pl_early$date)) {
 
 
 write_csv(pl_early, file = here("./data-organization/individual-datasets/PriorLake1_091725.csv"))
+
 
 
 ```
@@ -348,8 +349,7 @@ priorlake  <- priorlake  %>%
     ClosureYN = "N",
     ClosureReason = NA,
     MonitoringOrg = "PriorLake",
-    DOW = "70002600",  # Lower Prior Lake
-    units = "mpn"
+    DOW = "70002600"  # Lower Prior Lake
   )
 
 
@@ -399,10 +399,13 @@ priorlake  <- priorlake  %>%
 ```{r save data}
 
 # save to GitHub
-write_csv(priorlake, file = here("./data-organization/individual-datasets/PriorLake2_091725.csv"))
+# write_csv(priorlake, file = here("./data-organization/individual-datasets/PriorLake2_091725.csv"))
+
 
 # upload to Google Drive 
+setwd("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Processed data/")
 
+write.csv(dakota, file = "PriorLake2_091725.csv", row.names = FALSE)
 
 ```
 

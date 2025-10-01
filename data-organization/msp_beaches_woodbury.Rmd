@@ -1,0 +1,165 @@
+---
+title: "Woodbury beach data organization"
+author: "Becky Forgrave"
+date: "2025-09-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Packages to load --------------------------------------------------------
+
+library(tidyverse)
+library(googledrive)
+library(readxl)
+library(here)
+library(FSA) # for geomean() function
+library(janitor) # for row_to_names() fucntion
+
+
+```
+
+
+```{r load in data from computer}
+
+setwd("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Received data/City of Woodbury/")
+
+carver_raw <- read.csv("CarverLake_Ecoli_2023-2024_transcribed.csv") %>%
+  rename(date = Sample.Date) %>%
+  rename(sample_1 = Carver.Lake.Beach.North) %>%
+  rename(sample_2 = Carver.Lake.Beach.South) %>%
+  mutate(date = as.Date(date, format = "%m/%d/%Y")) 
+
+
+Expected <- length(which(carver_raw[,2:3] == "<1")) +  length(which(carver_raw[,2:3] == "1")) # number of <1 and 1 in all data columns
+# also works with random <10 in data
+
+carver_raw <- carver_raw %>%
+  mutate(
+    across(
+      .cols = 2:3,
+      .fns = ~ str_replace(string = .x, pattern = "<1", replacement = "1")
+    )
+  )
+
+# check that all converted correct
+length(which(carver_raw[,2:3] == "1"))  == Expected # True
+
+# convert to numeric (removes "not tested")
+carver_raw <- carver_raw %>%
+  mutate(
+    across(
+      .cols = 2:3,
+      .fns = as.numeric
+    )
+  )
+
+
+str(carver_raw)
+summary(carver_raw)
+
+```
+
+
+```{r calculate geometric means}
+
+## pivot longer-------------------- 
+carver_long <- carver_raw %>%
+  pivot_longer(
+    cols = c(sample_1, sample_2),
+    names_to = "sampleID",
+    values_to = "meas"
+  )
+
+# create new column to hold calculated values
+carver_long$Ecoli_1dGM <- 0
+carver_long$Ecoli_30dGM <- 0
+
+
+for (i in 1:length(carver_long$date)) {
+  intervalstart <- as.POSIXct(carver_long$date[i] - 30) # start 30 days before sampling date
+  intervalend <-  as.POSIXct(carver_long$date[i])
+
+  # select all E coli measurements for one day
+  oneday <-  carver_long %>%
+    filter(date == intervalend)
+  
+  # calculate 1 day geometric mean and add it to column in df
+  carver_long$Ecoli_1dGM[i] <- round(geomean(oneday$meas, na.rm = TRUE), digits = 1)
+  
+  
+  # select all E coli measurements in range
+  span30d <- carver_long %>%
+    filter(date >= intervalstart & date <= intervalend)
+  
+  # calculate 30-day geometric mean and add it to column in df
+  carver_long$Ecoli_30dGM[i] <- round(geomean(span30d$meas, na.rm = TRUE), digits = 1)
+}
+  
+carver <-  carver_long %>%
+  select(date, Ecoli_1dGM, Ecoli_30dGM) %>%
+  distinct()
+
+```
+
+
+```{r fill additional columns}
+
+# add columns to match master dataset--------------------
+carver  <- carver  %>%
+  mutate(
+    BeachName = "Carver",
+    Ecoli_units = "mpn",
+    ClosureYN = "N",
+    ClosureReason = NA,
+    MonitoringOrg = "Woodbury",
+    DOW = "82016600",  # Carver Lake
+  )
+
+
+# find a label beach closures-------------------------------
+
+carver  <- carver  %>%
+  mutate(
+    ClosureYN = if_else(
+      condition = Ecoli_1dGM > 1260,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    ClosureReason = if_else(
+      condition = Ecoli_1dGM > 1260,
+      true = "ecoli_1dayGM",
+      false = NA)
+  ) %>% 
+  mutate(
+    ClosureYN = if_else(
+      condition = Ecoli_30dGM > 126,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    ClosureReason = if_else(
+      condition = Ecoli_30dGM > 126,
+      true = "ecoli_30dayGM",
+      false = NA)
+  ) 
+
+
+```
+
+```{r save data}
+
+# # save to GitHub
+# write_csv(carver, file = here("./data-organization/individual-datasets/Woodbury_091725.csv"))
+# 
+# 
+
+# upload to Google Drive 
+setwd("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Processed data/")
+
+write.csv(carver, file = "Woodbury_091725.csv", row.names = FALSE)
+
+```
+

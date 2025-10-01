@@ -1,0 +1,188 @@
+---
+title: "msp_beaches_dakotaCo"
+author: "Becky Forgrave"
+date: "2025-09-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(googledrive)
+library(readxl)
+library(here)
+library(FSA) # for geomean() function
+library(janitor) # for row_to_names() fucntion
+```
+
+```{r load data}
+
+setwd("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Received data/Dakota County/")
+
+dc1 <- read.csv("dakota_county_2008-2021_openrefine.csv") %>%
+ separate(col = Date, into = c("Date", "Time"), sep = "T0") %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d")) %>%
+  mutate(DOW = as.character(DOW)) %>%
+  rename(Units = Ecoli_Units) %>%
+  select(Date, BeachName, Ecoli_1dGM, Units)
+
+str(dc1)
+summary(dc1)
+
+
+
+
+dc2 <- read.csv("dakota_county_2022-2024.csv") %>%
+  mutate(Date = as.Date(Date, format = "%m/%d/%Y")) %>%
+  rename(Ecoli_1dGM = Ecoli) %>%
+  rename(BeachName = Beach)
+
+str(dc2)
+summary(dc2)
+
+dc <- full_join(dc1, dc2)
+
+```
+
+
+```{r convert all values to numeric}
+
+
+# Change values that are "<1" to 1--------
+Expected <- length(which(dc[,3] == "<1")) +  length(which(dc[,3] == "1")) # number of <1 and 1 in all data columns
+
+dc <- dc %>%
+  mutate(across(.cols = 3,
+                .fns = ~ str_replace(string = .x, pattern = "<1",replacement = "1"))
+  )
+
+# check that all converted correct
+length(which(dc[,3] == "1"))  == Expected # True
+
+
+# convert numeric columns from chr --> num
+dc  <- dc %>%
+  mutate(across(.cols = 3,
+           .fns = as.numeric)
+  )
+
+str(dc)
+summary(dc)
+
+# remove NAs
+dc <- dc %>%
+  filter(Ecoli_1dGM > 0 )
+
+```
+
+```{r calculate geometric means}
+
+# create new column to hold calculated values
+dc$Ecoli_30dGM <- 0
+
+dc_new <- data.frame()
+
+# loop through list of beaches
+beachlist <- unique(dc2$BeachName)
+
+for (i in 1:length(beachlist)) { 
+  beach <- dc %>%
+      filter(BeachName == beachlist[i])
+
+  # loop through each day
+  for (i in 1:length(beach$Date)) {
+    intervalstart <- as.POSIXct(beach$Date[i] - 30) # start 30 days before sampling date
+    intervalend <-  as.POSIXct(beach$Date[i])
+    
+    # select all E coli measurements in 30 day range
+    span30d <-  beach %>%
+      filter(Date >= intervalstart & Date <= intervalend)
+    
+    # calculate 30-day geometric mean and add it to column in df
+    beach$Ecoli_30dGM[i] <- round(geomean(span30d$Ecoli_1dGM, na.rm = TRUE), digits = 1)
+    
+  }
+
+dc_new <- rbind(dc_new, beach)
+
+}
+
+
+```
+
+
+```{r fill additional columns}
+
+# add columns to match master dataset--------------------
+dakota <- dc_new %>%
+  filter(!is.na(Ecoli_1dGM)) %>%
+  mutate(
+    DOW = "",
+    ClosureYN = "N",
+    ClosureReason = NA,
+    MonitoringOrg = "DakotaCo") %>%
+  rename(Ecoli_units = Units)
+
+# add DOWs--------------------
+
+dakota$DOW <- ""
+
+for(i in 1:length(dakota$BeachName)) {
+  if(dakota$BeachName[i] == "Schulze") {
+    dakota$DOW[i] = "19007500"  
+  } else if(dakota$BeachName[i] == "Byllesby") { 
+    dakota$DOW[i] = "19000600"
+  } 
+  
+}
+  
+
+# find a label beach closures-------------------------------
+
+dakota  <- dakota   %>%
+  mutate(
+    ClosureYN = if_else(
+      condition = Ecoli_1dGM > 1260,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    ClosureReason = if_else(
+      condition = Ecoli_1dGM > 1260,
+      true = "ecoli_1dayGM",
+      false = NA)
+  ) %>% 
+  mutate(
+    ClosureYN = if_else(
+      condition = Ecoli_30dGM > 126,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    ClosureReason = if_else(
+      condition = Ecoli_30dGM > 126,
+      true = "ecoli_30dayGM",
+      false = NA)
+  ) 
+
+# rearragne columns
+dakota <- dakota %>%
+  select(BeachName, DOW, Date, MonitoringOrg, Ecoli_1dGM, Ecoli_30dGM, Ecoli_units, ClosureYN, ClosureReason)
+
+```
+
+```{r save data}
+
+# save to GitHub
+# write_csv(lakeville, file = here("./data-organization/individual-datasets/Lakeville_091825.csv"))
+
+
+
+# upload to Google Drive 
+setwd("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Processed data/")
+
+write.csv(dakota, file = "DakotaCo_092325.csv", row.names = FALSE)
+
+```
+

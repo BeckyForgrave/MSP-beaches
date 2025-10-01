@@ -438,3 +438,125 @@ write_csv(priorlake, file = here("./data-organization/individual-datasets/PriorL
 
 ```
 
+
+Read back in early data to calc Geomean
+```{r}
+
+pl_early <- read.csv("G:/My Drive/Research/beaches/data/processed/PriorLake1_091725.csv") %>%
+  mutate(date = as.Date(date, format = "%m/%d/%Y"))
+
+
+
+# create new column to hold calculated values
+pl_early$Ecoli_30dGM <- 0
+
+
+
+# separate by beach for calculations------------------------------
+
+sand <- pl_early %>%
+  filter(beach_name == "Sand Point Beach")
+
+  
+for (i in 1:length(sand$date)) {
+  intervalstart <- as.POSIXct(sand$date[i] - 30) # start 30 days before sampling date
+  intervalend <-  as.POSIXct(sand$date[i])
+  
+  # select all E coli measurements in range
+  span30d <-  sand %>%
+    filter(date >= intervalstart & date <= intervalend)
+  
+  # calculate 30-day geometric mean and add it to column in df
+  sand$Ecoli_30dGM[i] <- round(geomean(span30d$sample_1, na.rm = TRUE), digits = 1)
+}
+  
+
+sand <- sand %>%
+  select(beach_name, date, Ecoli_1dGM, Ecoli_30dGM) %>%
+  distinct()
+
+
+
+
+# separate by beach for calculations------------------
+
+watzl <- pl_early %>%
+  filter(beach_name == "Watzl's Beach")
+
+
+for (i in 1:length(watzl$date)) {
+  
+  intervalstart <- as.POSIXct(watzl$date[i] - 30) # start 30 days before sampling date
+  intervalend <-  as.POSIXct(watzl$date[i])
+  
+  # select all E coli measurements in range
+  span30d <-  watzl %>%
+    filter(date >= intervalstart & date <= intervalend)
+  
+  # calculate 30-day geometric mean and add it to column in df
+  watzl$Ecoli_30dGM[i] <- round(geomean(span30d$sample_1, na.rm = TRUE), digits = 1)
+  
+}
+
+watzl <-  watzl %>%
+  select(beach_name, date, Ecoli_1dGM, Ecoli_30dGM) %>%
+  distinct()
+
+
+
+
+priorlake_early <- rbind(sand, watzl) 
+
+priorlake_early <- priorlake_early[!is.na(priorlake_early$Ecoli_1dGM),] # remove any NAs in data
+
+
+# add columns to match master dataset--------------------
+priorlake_early  <- priorlake_early  %>%
+  mutate(
+    Ecoli_units = "",
+    ClosureYN = "N",
+    ClosureReason = NA,
+    MonitoringOrg = "PriorLake",
+    DOW = "70002600",  # Lower Prior Lake
+    units = "mpn"
+  )
+
+
+
+# find a label beach closures-------------------------------
+
+priorlake_early  <- priorlake_early  %>%
+  mutate(
+    ClosureYN = if_else(
+      condition = Ecoli_1dGM > 1260,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    ClosureReason = if_else(
+      condition = Ecoli_1dGM > 1260,
+      true = "ecoli_1dayGM",
+      false = NA)
+  ) %>% 
+  mutate(
+    ClosureYN = if_else(
+      condition = Ecoli_30dGM > 126,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    ClosureReason = if_else(
+      condition = Ecoli_30dGM > 126,
+      true = "ecoli_30dayGM",
+      false = NA)
+  ) 
+
+
+
+write_csv(priorlake_early, file = here("PriorLake1_091725_fixed.csv"))
+
+
+
+
+```
+

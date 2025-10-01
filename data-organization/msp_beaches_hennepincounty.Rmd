@@ -1,0 +1,206 @@
+---
+title: "Hennepin county data cleaning"
+author: "Becky Forgrave"
+date: "2025-09-23"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(googledrive)
+library(readxl)
+library(here)
+library(FSA) # for geomean() function
+library(janitor) # for row_to_names() fucntion
+```
+
+# Append all --> export to OpenRefine to fix misspellings in names
+
+```{r load data 1}
+
+setwd("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Received data/Hennepin County/")
+
+# 2007-2012
+hc2007 <- read.csv("./bf_annotated/2007 hennepin ecoli.csv") %>%
+  janitor::clean_names() %>%
+  filter(date != "")  %>% # remove empty cells (relic from excel)
+  select(date, beach, lake, e_coli_100ml, comments) 
+
+hc2008 <- read.csv("./bf_annotated/2008 hennepin ecoli.csv") %>%
+  janitor::clean_names() %>%
+  filter(date != "") %>%
+  select(date, beach, lake, e_coli_100ml, comments)
+
+hc2009 <- read.csv("./bf_annotated/2009 hennepin ecoli.csv") %>%
+  janitor::clean_names() %>%
+  filter(date != "") %>%
+  select(date, beach, lake, e_coli_100ml, comments)
+
+hc2010 <- read.csv("./bf_annotated/2010 hennepin ecoli.csv") %>%
+  janitor::clean_names() %>%
+  filter(date != "") %>%
+  select(date, beach, lake, e_coli_100ml, comments)
+
+hc2011 <- read.csv("./bf_annotated/2011 hennepin ecoli.csv") %>%
+  janitor::clean_names() %>%
+  filter(date != "") %>%
+  select(date, beach, lake, e_coli_100ml, comments)
+
+hc2012 <- read.csv("./bf_annotated/2012 hennepin ecoli.csv") %>%
+  janitor::clean_names() %>%
+  filter(date != "") %>%
+  rename(beach = beach_park) %>%
+  select(date, beach, lake, e_coli_100ml, comments)
+
+# JOIN THEM
+hc_2007_2012 <- rbind(hc2007, hc2008, hc2009, hc2010, hc2011, hc2012)
+
+
+```
+
+```{r load data 2}
+
+# 2013-2016
+hc2013 <- read.csv("./bf_annotated/2013 hennepin ecoli.csv") %>%
+  janitor::clean_names() %>%
+  rename(date = smple_date) %>%
+  select(date, beach,  cfu, resmpl_req, open_closed, comments)
+
+hc2014 <- read.csv("./bf_annotated/2014 hennepin ecoli.csv") %>%
+  janitor::clean_names() %>%
+  rename(date = smple_date) %>%
+  select(date, beach,  cfu, resmpl_req, open_closed, comments)
+
+hc2015 <- read.csv("./bf_annotated/2015 hennepin ecoli.csv") %>%
+  janitor::clean_names() %>%
+  rename(date = smple_date) %>%
+  select(date, beach,  cfu, resmpl_req, open_closed, comments)
+
+hc2016 <- read.csv("./bf_annotated/2016 hennepin ecoli.csv") %>%
+  janitor::clean_names() %>%
+  rename(date = smple_date) %>%
+  select(date, beach,  cfu, resmpl_req, open_closed, comments)
+
+# JOIN THEM
+# hc_2013_2016 <- rbind(hc2013, hc2014, hc2015, hc2016)
+
+
+```
+
+```{r load data 3 }
+
+# same columns as above but will need to remove L, R, C from beach names
+hc2017 <- read_xlsx("2017_Beach_Sample_Results.xlsx") %>%
+  janitor::clean_names() %>%
+  rename(date = smple_date) %>%
+  # mutate(date = as.Date(date))
+  select(date, beach,  cfu, resmpl_req, open_closed, comments)
+
+hc2018 <- read_xlsx("2018_Beach_Sample_Results.xlsx") %>%
+  janitor::clean_names() %>%
+  rename(date = smple_date) %>%
+  select(date, beach,  cfu, resmpl_req, open_closed, comments)
+
+hc2019 <- read_xlsx("2019_Beach_Sample_Results.xlsx") %>%
+  janitor::clean_names() %>%
+  rename(date = smple_date) %>%
+  select(date, beach,  cfu, resmpl_req, open_closed, comments)
+
+hc2020 <- read_xlsx("2020_Beach_Sample_Results.xlsx") %>%
+  janitor::clean_names() %>%
+  rename(date = smple_date) %>%
+  select(date, beach,  cfu, resmpl_req, open_closed, comments)
+
+hc2021 <- read_xlsx("2021_Beach_Sample_Results.xlsx") %>%
+  janitor::clean_names() %>%
+  rename(date = smple_date) %>%
+  select(date, beach,  cfu, resmpl_req, open_closed, comments)
+
+hc2022 <- read_xlsx("Annotated_2022_Beach_Sample_Results.xlsx") %>%
+  janitor::clean_names() %>%
+  rename(date = smple_date) %>%
+  select(date, beach,  cfu, resmpl_req, open_closed, comments)
+
+
+
+# JOIN THEM
+hc_2013_2022 <- rbind(hc2013, hc2014, hc2015, hc2016, hc2017, hc2018, hc2019, hc2020, hc2021, hc2022)
+
+
+
+
+
+```
+
+```{r}
+
+hc2023 <- read.csv("./bf_annotated/2023 hennepin ecoli.csv") %>%
+  janitor::clean_names() %>%
+  rename(date = collection_date) %>%
+  rename(beach = sample_description) %>%
+  select(date, beach,  result, units)
+
+
+hc2024 <- read.csv("./bf_annotated/2024 hennepin ecoli.csv") %>%
+  janitor::clean_names() %>%
+  rename(date = date_sampled) %>%
+  rename(beach = sample_description) %>%
+  select(date, beach,  result, units)
+
+
+hc_2023_2024 <- rbind(hc2023, hc2024)
+
+```
+
+
+```{r bulk edit and combine all}
+
+# bulk edit
+hc_2007_2012 <- hc_2007_2012 %>%
+  rename(ecoli = e_coli_100ml) %>%
+  mutate(units = "cfu/100mL")
+
+hc_2013_2022 <- hc_2013_2022 %>%
+  rename(ecoli = cfu) %>%
+  mutate(units = "cfu/100mL")
+
+hc_2023_2024 <- hc_2023_2024 %>%
+  rename(ecoli = result) %>%
+  mutate(units = "mpn/100mL")
+
+
+# combine all
+hc_all <- full_join(hc_2007_2012, hc_2013_2022)
+
+hc_all <- full_join(hc_all, hc_2023_2024)
+
+
+
+# export combined data
+write.csv(hc_all, file = "Hennepin_combined_raw.csv", row.names = FALSE)
+
+
+```
+ # export to edit beach names in open refine (remove L/R/C and fix misspellings)
+ 
+ 
+# Read back into R 
+```{r covert column formats}
+
+```
+
+
+
+# calculate GMS
+```{r calculate geometric means}
+
+```
+
+
+```{r add final columns to match master dataset}
+
+```
+
