@@ -144,7 +144,7 @@ lakeville <- lakeville %>%
 
 
 # upload to Google Drive 
-setwd("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Processed data/")
+setwd("G:/My Drive/Research/beaches/data/processed/")
 
 write.csv(lakeville, file = "Lakeville_091825.csv", row.names = FALSE)
 

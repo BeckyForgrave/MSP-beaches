@@ -22,7 +22,7 @@ rm(list = ls())
 
 ```{r load data}
 
-setwd("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Processed data")
+setwd("G:/My Drive/Research/beaches/data/processed")
 
 trpd <- read.csv("TRPD_081125.csv") %>%
   # mutate(DOW = fixlakeid(DOW)) %>% # doesn't work for NAs
@@ -37,8 +37,9 @@ ramco <- read.csv("RamseyCo_081125.csv") %>%
   mutate(DOW = as.character(DOW)) %>%
   mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
 
-
-# henCo
+henco <- read.csv("HennepinCo_100225.csv") %>%
+  mutate(DOW = as.character(DOW)) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
 
 dakco  <- read.csv("DakotaCo_092325.csv") %>%
   mutate(DOW = as.character(DOW)) %>%
@@ -54,12 +55,14 @@ burnsville <- read.csv("MSP-beaches_Burnsville_clean.csv") %>%
 
 minnetonka <- read.csv("MSP-beaches_Minnetonka_clean.csv") %>%
   mutate(DOW = as.character(DOW)) %>%
-  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d")) %>%
+  select(-Notes)
 
 woodbury <- read.csv("Woodbury_091725.csv") %>%
   mutate(DOW = as.character(DOW)) %>%
   mutate(date = as.Date(date, format = "%Y-%m-%d")) %>%
-  rename(Date = date) 
+  rename(Date = date) %>%
+  select(-units)
 
 lakeville <- read.csv("Lakeville_091825.csv") %>%
   mutate(DOW = as.character(DOW)) %>%
@@ -69,6 +72,8 @@ lakeville <- read.csv("Lakeville_091825.csv") %>%
 
 
 priorlake1 <- read.csv("PriorLake1_091725_fixed.csv") %>%
+  select(-Ecoli_units) %>%
+  rename(Ecoli_units = units) %>%
   rename(Date = date) %>%
   rename(BeachName = beach_name) %>%
   mutate(DOW = as.character(DOW)) %>%
@@ -89,7 +94,23 @@ rm(priorlake1, priorlake2)
 
 ```{r combine}
 
-all_beaches <- rbind(blaine, burnsville, dakco, lakeville, minnetonka, mprb, priorlake, ramco, trpd, woodbury)
+all_beaches <- rbind(blaine, burnsville, lakeville, minnetonka, mprb, priorlake, ramco, dakco, henco, trpd, woodbury)
+# dates got messed up
+
+
+all_beaches <- all_beaches %>%
+  filter(!is.na(Date)) %>%
+  filter(!is.na(Ecoli_1dGM))
+
+
+str(all_beaches)
+summary(all_beaches)
+
+```
+
+```{r write to file}
+getwd()
+write.csv(all_beaches, "./combined/All_beaches_100225.csv", row.names = FALSE)
 
 ```
 

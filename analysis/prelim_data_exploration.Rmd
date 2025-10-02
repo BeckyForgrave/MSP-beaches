@@ -17,22 +17,28 @@ library(mnsentinellakes)
 
 ```{r load data}
 
-setwd("C:/Users/forgr/OneDrive/UMN/Data/beaches")
+setwd("G:/My Drive/Research/beaches/data/")
+
 
 # Two beaches don't have a DOW - Minnetonka swim pond and Elm creek swim pond
-# messes up fixlakeid()
+# messes up fixlakeid() --> remove
 
-beaches <- read.csv("Beaches-2004-2024-RC-MPRB-TRPD_openrefine.csv") %>%
-  # mutate(DOW = fixlakeid(DNRID)) %>%
-  mutate(Date = as.POSIXct(Date, format = "%m/%d/%Y"))  %>%
+
+beaches <- read.csv("./processed/combined/All_beaches_10012025.csv") %>%
+  filter(!is.na(DOW)) %>% # remove swim ponds
+  mutate(DOW = fixlakeid(DOW)) %>%
+  mutate(Date = as.POSIXct(Date, format = "%Y-%m-%d"))  %>%
   mutate(Year = year(Date)) %>%
   mutate(Month = month(Date)) 
 
-precip <- read.csv("precip_by_month.csv") %>%
-  # mutate_if(is.character, as.numeric) %>%
-  select(Year, Annual) %>%
-  rename(Annual_in = Annual) %>%
-  mutate(Annual_mm = Annual_in * 25.4)
+precip <- read.csv("./other_variables/precip_by_month.csv") %>%
+  mutate(Annual_mm = Annual * 25.4) %>%
+  mutate(May_mm = May * 25.4) %>%
+  mutate(Jun_mm = Jun * 25.4) %>%
+  mutate(Jul_mm = Jul * 25.4) %>%
+  mutate(Aug_mm = Aug * 25.4) %>%
+  mutate(Sep_mm = Sep * 25.4) %>%
+  select(Year, Annual_mm, May_mm, Jun_mm, Jul_mm, Aug_mm, Sep_mm)
 
 
 
@@ -43,9 +49,9 @@ precip <- read.csv("precip_by_month.csv") %>%
 
 
 length(unique(beaches$BeachName))
-# 39 beaches
+# 37 beaches
 
-length(unique(beaches$DNRID))
+length(unique(beaches$DOW))
 # 28 lakes (actually 30, but two dont have DNRID)
 
 closed <- beaches %>%

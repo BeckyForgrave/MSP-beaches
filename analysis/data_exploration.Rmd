@@ -1,0 +1,220 @@
+---
+title: "Beach data initial explore"
+author: "Becky Forgrave"
+date: "2025-10-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+library(patchwork)
+library(mnsentinellakes)
+
+```
+
+```{r load data}
+
+setwd("G:/My Drive/Research/beaches/data/")
+
+
+# Two beaches don't have a DOW - Minnetonka swim pond and Elm creek swim pond
+# messes up fixlakeid() --> remove
+
+
+beaches <- read.csv("./processed/combined/All_beaches_100225.csv") %>%
+  filter(!is.na(DOW)) %>% # remove swim ponds
+  mutate(DOW = fixlakeid(DOW)) %>%
+  mutate(Date = as.POSIXct(Date, format = "%Y-%m-%d"))  %>%
+  mutate(Year = year(Date)) %>%
+  mutate(Month = month(Date)) %>%
+ # mutate(Jday = julian(Date)) # notwokring
+
+precip <- read.csv("./other_variables/precip_by_month.csv") %>%
+  mutate(Annual_mm = Annual * 25.4) %>%
+  mutate(May_mm = May * 25.4) %>%
+  mutate(Jun_mm = Jun * 25.4) %>%
+  mutate(Jul_mm = Jul * 25.4) %>%
+  mutate(Aug_mm = Aug * 25.4) %>%
+  mutate(Sep_mm = Sep * 25.4) %>%
+  select(Year, Annual_mm, May_mm, Jun_mm, Jul_mm, Aug_mm, Sep_mm) %>%
+  filter(Year > 2009)
+
+
+tempavg <- read.csv("./other_variables/avg_temp_monthly.csv")  %>%
+  filter(Year > 2009) 
+
+ 
+tempmax <- read.csv("./other_variables/max_temp_monthly_mean.csv")  %>%
+  filter(Year > 2009)
+
+```
+
+# overall data exploration
+```{r}
+
+length(unique(beaches$BeachName))
+# 49 beaches
+
+length(unique(beaches$DOW))
+# 38 lakes (actually 30, but two dont have DNRID)
+
+closed <- beaches %>%
+  filter(ClosureYN == "Y") %>%
+  filter(Year >= 2010 & Year < 2025) 
+
+ggplot(closed, aes(x = ClosureReason)) + 
+  geom_bar()
+
+# how many closures in past 16 years from each type
+closures.summary <- closed %>% 
+  group_by(ClosureReason) %>%
+    summarize(n = n(),
+              perc = round((n/length(closed$BeachName))*100,digits = 2))
+closures.summary
+
+
+```
+
+
+```{r which beaches close the most often}
+
+# table of number of beach closures per beach in whole dataset
+beach.summary <- beaches %>% 
+   filter(Date > "2010-01-01") %>%
+  group_by(BeachName) %>%
+    summarize(startYear = min(Year), 
+              endYear = max(Year),
+              numSamples = n()) 
+beach.summary
+
+
+closed.summary <- closed %>% 
+   filter(Date > "2010-01-01") %>%
+  group_by(BeachName) %>%
+    summarize(numClosures = n())
+closed.summary
+
+
+
+combined.summary <- left_join(beach.summary, closed.summary) %>%
+  mutate(percClosed = round((numClosures/numSamples) *100)) %>%
+  arrange(desc(percClosed))
+combined.summary
+
+mostclosedlist <- combined.summary$BeachName[1:10]
+
+
+
+neverclosedlist <-  combined.summary %>%
+  arrange(percClosed)
+
+neverclosedlist
+# none that are never closed
+
+# why is como sampled --> no beach
+```
+
+```{r precip specifics}
+
+# closures by year
+closed.plot <- ggplot(closed, aes(x=Year)) + 
+  geom_bar(fill = "grey40") + 
+  theme_bw() + 
+  xlim(2009,2025) +
+  ylab("Number of beach closures")
+
+# annual precip
+precip.plot <- ggplot(precip, aes(x=Year, y=Annual_mm)) + 
+  geom_line(linewidth=2, color="blue") +
+  # ylim(0, 1200) +  
+  xlim(2009,2025) +
+  theme_bw()
+
+precip.plot /closed.plot 
+
+# monthly precip
+monthlyprecip.plot <- ggplot(precip, aes(x=Year)) + 
+  geom_line(aes(y=May_mm), color = "lightblue",linewidth = 2) +
+  geom_line(aes(y=Jun_mm), color = "deepskyblue",linewidth = 2) +
+  geom_line(aes(y=Jul_mm), color = "steelblue",linewidth = 2) +
+  geom_line(aes(y=Aug_mm), color = "blue",linewidth = 2) +
+  geom_line(aes(y=Sep_mm), color = "darkblue",linewidth = 2) +
+  ylab("Montly Precip (mm)") 
+
+  
+monthlyprecip.plot /closed.plot 
+
+
+```
+
+```{r temperature}
+
+# calculate aveage summer temp
+
+tempavg$Summer <- 0
+for( i in 1:length(tempavg$Year)) {
+  tempavg$Summer[i] <- mean(tempavg$May[i], tempavg$Jun[i], tempavg$Jul[i], tempavg$Aug[i])
+}
+
+tempavg.plot <- ggplot(tempavg, aes(x=Year, y=Summer)) + 
+  geom_line(color = "gold", linewidth = 2) +
+  xlim(2009,2025) +
+  ylab("Mean SummerTemp (deg F)") +
+  theme_bw()
+
+
+monthlytempavg.plot <- ggplot(tempavg, aes(x=Year)) + 
+  geom_line(aes(y=May), color = "darkgreen",linewidth = 2) +
+  geom_line(aes(y=Jun), color = "green",linewidth = 2) +
+  geom_line(aes(y=Jul), color = "gold",linewidth = 2) +
+  geom_line(aes(y=Aug), color = "darkorange",linewidth = 2) +
+  geom_line(aes(y=Sep), color = "red",linewidth = 2) +
+  ylab("Average Monthly Temperature (deg F)") +
+  theme_bw()
+
+
+# summer average max temperature
+tempmax$Summer <- 0
+for( i in 1:length(tempmax$Year)) {
+  tempmax$Summer[i] <- mean(tempmax$May[i], tempmax$Jun[i], tempmax$Jul[i], tempmax$Aug[i])
+}
+
+tempmax.plot <- ggplot(tempmax, aes(x=Year, y=Summer)) + 
+  geom_line(color = "red", linewidth = 2) +
+  xlim(2009,2025) +
+  ylab("Summer Maximum Temp (deg F)") +
+  theme_bw()
+
+
+monthlytempmax.plot <- ggplot(tempmax, aes(x=Year)) + 
+  geom_line(aes(y=May), color = "darkgreen",linewidth = 2) +
+  geom_line(aes(y=Jun), color = "green",linewidth = 2) +
+  geom_line(aes(y=Jul), color = "gold",linewidth = 2) +
+  geom_line(aes(y=Aug), color = "darkorange",linewidth = 2) +
+  geom_line(aes(y=Sep), color = "red",linewidth = 2) +
+  ylab("Maximum Monthly Temperature (deg F)") 
+
+
+
+monthlyavgtemp.plot/ monthlyprecip.plot /closed.plot 
+
+tempavg.plot / precip.plot /closed.plot 
+
+```
+
+```{r seasonality of ecoli closures}
+
+# closures by year
+ ggplot(beaches, aes(x=Julian, y=Ecoli_1dGM, color = ClosureYN)) + 
+  geom_point()
+  
+
+```
+
+```{r watershed data?}
+
+```
+
