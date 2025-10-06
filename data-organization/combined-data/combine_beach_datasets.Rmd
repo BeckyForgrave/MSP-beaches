@@ -41,13 +41,16 @@ henco <- read.csv("HennepinCo_100225.csv") %>%
   mutate(DOW = as.character(DOW)) %>%
   mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
 
+henco <- unique(henco)
+
+
 dakco  <- read.csv("DakotaCo_092325.csv") %>%
   mutate(DOW = as.character(DOW)) %>%
   mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
   
 blaine <- read.csv("Blaine_081125_bf.csv") %>%
   mutate(DOW = as.character(DOW)) %>%
-  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d")) # dates are messed up but not enough data to care about
 
 burnsville <- read.csv("MSP-beaches_Burnsville_clean.csv") %>%
   mutate(DOW = as.character(DOW)) %>%
@@ -95,7 +98,7 @@ rm(priorlake1, priorlake2)
 ```{r combine}
 
 all_beaches <- rbind(blaine, burnsville, lakeville, minnetonka, mprb, priorlake, ramco, dakco, henco, trpd, woodbury)
-# dates got messed up
+
 
 
 all_beaches <- all_beaches %>%
@@ -110,7 +113,9 @@ summary(all_beaches)
 
 ```{r write to file}
 getwd()
-write.csv(all_beaches, "./combined/All_beaches_100225.csv", row.names = FALSE)
+
+setwd("G:/My Drive/Research/beaches/data/processed")
+write.csv(all_beaches, "./combined/All_beaches_new_100225.csv", row.names = FALSE)
 
 ```
 

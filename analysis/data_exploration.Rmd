@@ -15,55 +15,38 @@ library(mnsentinellakes)
 
 ```
 
-```{r load data}
+```{r load compiled beach data}
 
 setwd("G:/My Drive/Research/beaches/data/")
-
 
 # Two beaches don't have a DOW - Minnetonka swim pond and Elm creek swim pond
 # messes up fixlakeid() --> remove
 
-
-beaches <- read.csv("./processed/combined/All_beaches_100225.csv") %>%
-  filter(!is.na(DOW)) %>% # remove swim ponds
-  mutate(DOW = fixlakeid(DOW)) %>%
-  mutate(Date = as.POSIXct(Date, format = "%Y-%m-%d"))  %>%
-  mutate(Year = year(Date)) %>%
-  mutate(Month = month(Date)) %>%
- # mutate(Jday = julian(Date)) # notwokring
-
-precip <- read.csv("./other_variables/precip_by_month.csv") %>%
-  mutate(Annual_mm = Annual * 25.4) %>%
-  mutate(May_mm = May * 25.4) %>%
-  mutate(Jun_mm = Jun * 25.4) %>%
-  mutate(Jul_mm = Jul * 25.4) %>%
-  mutate(Aug_mm = Aug * 25.4) %>%
-  mutate(Sep_mm = Sep * 25.4) %>%
-  select(Year, Annual_mm, May_mm, Jun_mm, Jul_mm, Aug_mm, Sep_mm) %>%
-  filter(Year > 2009)
-
-
-tempavg <- read.csv("./other_variables/avg_temp_monthly.csv")  %>%
-  filter(Year > 2009) 
-
- 
-tempmax <- read.csv("./other_variables/max_temp_monthly_mean.csv")  %>%
-  filter(Year > 2009)
-
-```
-
-# overall data exploration
-```{r}
-
-length(unique(beaches$BeachName))
-# 49 beaches
-
-length(unique(beaches$DOW))
-# 38 lakes (actually 30, but two dont have DNRID)
+beaches <- read.csv("./processed/combined/All_beaches_new_100225_openrefine.csv") %>%
+  janitor::clean_names() %>%
+  filter(!is.na(dow)) %>% # remove swim ponds (don't have DOWs)
+  mutate(dow = fixlakeid(dow)) %>%
+  mutate(date = as.POSIXct(date, format = "%Y-%m-%d"))  %>%
+  mutate(y = year(date)) %>%
+  mutate(m = month(date)) %>%
+  mutate(jday = yday(date)) %>%
+  mutate(w = week(date)) %>%
+  filter(date > "2010-01-01" & date < "2025-01-01") # select to dates with most data
 
 closed <- beaches %>%
-  filter(ClosureYN == "Y") %>%
-  filter(Year >= 2010 & Year < 2025) 
+  filter(closure_yn == "Y")
+
+```
+# dataset basics
+```{r data exploration}
+
+length(unique(beaches$BeachName))
+# 81 beaches
+
+length(unique(beaches$DOW))
+# 59 lakes 
+
+
 
 ggplot(closed, aes(x = ClosureReason)) + 
   geom_bar()
@@ -83,19 +66,15 @@ closures.summary
 
 # table of number of beach closures per beach in whole dataset
 beach.summary <- beaches %>% 
-   filter(Date > "2010-01-01") %>%
   group_by(BeachName) %>%
     summarize(startYear = min(Year), 
               endYear = max(Year),
               numSamples = n()) 
-beach.summary
 
 
 closed.summary <- closed %>% 
-   filter(Date > "2010-01-01") %>%
   group_by(BeachName) %>%
-    summarize(numClosures = n())
-closed.summary
+    summarize(numClosures = n()) 
 
 
 
@@ -104,9 +83,8 @@ combined.summary <- left_join(beach.summary, closed.summary) %>%
   arrange(desc(percClosed))
 combined.summary
 
+
 mostclosedlist <- combined.summary$BeachName[1:10]
-
-
 
 neverclosedlist <-  combined.summary %>%
   arrange(percClosed)
@@ -114,8 +92,136 @@ neverclosedlist <-  combined.summary %>%
 neverclosedlist
 # none that are never closed
 
-# why is como sampled --> no beach
+
 ```
+
+```{r plots}
+
+# whole time series
+ggplot(beaches, aes(x=Date, y=Ecoli_1dGM)) +
+  geom_point() +
+  ylim(0,2500)
+
+# throughout monitoring season
+ggplot(beaches, aes(x=Jday, y=Ecoli_1dGM, color = ClosureYN)) +
+  geom_point() +
+  ylim(0,2500)
+# more closures later in season but they can be any time
+
+```
+```{r averages}
+
+# average all beaches for each day (each week?)
+avg_ecoli <- beaches %>%
+  group_by(Date) %>%
+  summarize(ecoli_allbeachesmean = mean(Ecoli_1dGM))
+
+# whole time series
+ggplot(avg_ecoli, aes(x=Date, y=ecoli_allbeachesmean)) +
+  geom_point() +
+  ylim(0,2500)
+
+
+# compare each beach to the average
+# is this worthwhile?
+
+# look in literature for ideas
+
+```
+
+
+ # CLIMATE
+```{r monthly climate data}
+
+# mprecip <- read.csv("./other_variables/precip_by_month.csv") %>%
+#   mutate(Annual_mm = Annual * 25.4) %>%
+#   mutate(May_mm = May * 25.4) %>%
+#   mutate(Jun_mm = Jun * 25.4) %>%
+#   mutate(Jul_mm = Jul * 25.4) %>%
+#   mutate(Aug_mm = Aug * 25.4) %>%
+#   mutate(Sep_mm = Sep * 25.4) %>%
+#   select(Year, Annual_mm, May_mm, Jun_mm, Jul_mm, Aug_mm, Sep_mm) %>%
+#   filter(Year > 2009)
+# 
+# 
+# mtempavg <- read.csv("./other_variables/avg_temp_monthly.csv")  %>%
+#   filter(Year > 2009) 
+# 
+#  
+# mtempmax <- read.csv("./other_variables/max_temp_monthly_mean.csv")  %>%
+#   filter(Year > 2009)
+
+```
+
+```{r daily climate data}
+
+setwd("G:/My Drive/Research/beaches/data/")
+
+dclim <- read.csv("./other_variables/daily_precip.csv") %>%
+  janitor::clean_names() %>%
+  mutate(date = as.Date(date, format = "%Y-%m-%d")) %>%
+  mutate(max_temp_degC = (as.numeric(maximum_temperature_degrees_f) - 32) *(5/9)) %>%
+  mutate(min_temp_degC = (as.numeric(minimum_temperature_degrees_f) - 32) *(5/9)) %>%
+  mutate(precip_mm = as.numeric(precipitation_inches)* 25.4) %>%  # Trace precip (T) becomes NA
+  select(date, precip_mm, max_temp_degC, min_temp_degC) %>%
+  filter(date >= "2010-01-01" & date < "2025-01-01")
+
+
+dclim$ante5dptot <- 0
+dclim$ante5avgmaxt <- 0
+
+# rolling 5 day climate
+for (i in 1:length(dclim$date)) {
+  intervalstart <- as.POSIXct(dclim$date[i] - 5) #rolling window 5 days before
+  intervalend <-  as.POSIXct(dclim$date[i])
+  
+  span5d <-  dclim %>%
+    filter(date >= intervalstart & date <= intervalend) # select all data 5 days 
+  
+  dclim$ante5dptot[i] <- sum(span5d$precip_mm, na.rm = TRUE)
+  dclim$ante5avgmaxt[i] <- mean(span5d$max_temp_degC, na.rm = TRUE)
+}
+
+summary(dclim)
+
+  
+# # summarize weekly --> rolling average is better
+# dprecip <- dprecip %>% 
+#     mutate(w = week(date)) %>%
+#     group_by(yw = paste(year(date), week(date))) %>%
+#     mutate(weeklyPtotal = sum(precip_mm, na.rm = T)) %>%
+#     mutate(weeklyavgTmax = mean(max_temp_degC, na.rm = T)) %>%
+#     mutate(weeklyavgTmin= mean(min_temp_degC, na.rm = T)) %>%
+#     ungroup()
+# 
+# wprecip <- dprecip %>%
+#   select(yw, w, weeklyPtotal, weeklyavgTmax, weeklyavgTmin)
+# 
+# wprecip<- unique(wprecip)
+
+```
+
+```{r explore weekly precip}
+# 
+# ggplot(wprecip, aes(x=w, y=weeklyPtotal)) + 
+#   geom_point() 
+# 
+# ggplot(wprecip, aes(x=yw, y=weeklyPtotal)) + 
+#   geom_point()  $# too much data
+
+```
+
+```{r weekly precip data + ecoli}
+ 
+combined <- left_join(beaches, dclim)
+
+ggplot(combined, aes(x=ante5dptot, y=ecoli_1d_gm)) + 
+      geom_point()
+
+
+
+```
+
 
 ```{r precip specifics}
 
@@ -214,6 +320,7 @@ tempavg.plot / precip.plot /closed.plot
 
 ```
 
+# WATERSHEDS
 ```{r watershed data?}
 
 ```

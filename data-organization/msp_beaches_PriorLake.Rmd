@@ -332,7 +332,7 @@ watzl <-  watzl %>%
 
 
 
-priorlake <- rbind(sand, watzl) # rewrites minntonka df
+priorlake <- rbind(sand, watzl) 
 
 priorlake <- priorlake[!is.na(priorlake$Ecoli_1dGM),] # remove any NAs in data
 
