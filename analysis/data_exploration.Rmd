@@ -27,33 +27,79 @@ beaches <- read.csv("./processed/combined/All_beaches_new_100225_openrefine.csv"
   filter(!is.na(dow)) %>% # remove swim ponds (don't have DOWs)
   mutate(dow = fixlakeid(dow)) %>%
   mutate(date = as.POSIXct(date, format = "%Y-%m-%d"))  %>%
-  mutate(y = year(date)) %>%
-  mutate(m = month(date)) %>%
+  mutate(year = year(date)) %>%
+  mutate(month = month(date)) %>%
   mutate(jday = yday(date)) %>%
-  mutate(w = week(date)) %>%
-  filter(date > "2010-01-01" & date < "2025-01-01") # select to dates with most data
+  mutate(week = week(date)) 
+  # filter(date > "2010-01-01" & date < "2025-01-01") # select to dates with most data
 
 closed <- beaches %>%
   filter(closure_yn == "Y")
 
 ```
+
+```{r recalculate closures with new thresholds}
+
+
+beaches_new <- beaches   %>%
+  mutate(
+    closure_yn = if_else(
+      condition = ecoli_1d_gm > 235,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    closure_reason = if_else(
+      condition = ecoli_1d_gm > 235,
+      true = "ecoli_1dayGM",
+      false = NA)
+  ) %>% 
+  mutate(
+    closure_yn = if_else(
+      condition = ecoli_30d_gm > 126,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    closure_reason = if_else(
+      condition = ecoli_30d_gm > 126,
+      true = "ecoli_30dayGM",
+      false = closure_reason)
+  ) 
+
+
+# this overprints the 30day on top of the 1 day closures --> what to do if both conditions are met?
+
+
+closed_new <- beaches_new %>%
+  filter(closure_yn == "Y")
+
+  
+```
+
+
+
 # dataset basics
 ```{r data exploration}
 
-length(unique(beaches$BeachName))
-# 81 beaches
-
-length(unique(beaches$DOW))
-# 59 lakes 
+length(unique(beaches$beach_name))
 
 
+length(unique(beaches$dow))
 
-ggplot(closed, aes(x = ClosureReason)) + 
+
+
+
+ggplot(closed, aes(x = closure_reason)) + 
   geom_bar()
 
-# how many closures in past 16 years from each type
+
+ggplot(closed_new, aes(x = closure_reason)) + 
+  geom_bar()
+
+# how many closures in past 15 years from each type
 closures.summary <- closed %>% 
-  group_by(ClosureReason) %>%
+  group_by(closure_reason) %>%
     summarize(n = n(),
               perc = round((n/length(closed$BeachName))*100,digits = 2))
 closures.summary
@@ -66,14 +112,14 @@ closures.summary
 
 # table of number of beach closures per beach in whole dataset
 beach.summary <- beaches %>% 
-  group_by(BeachName) %>%
-    summarize(startYear = min(Year), 
-              endYear = max(Year),
+  group_by(beach_name) %>%
+    summarize(startYear = min(year), 
+              endYear = max(year),
               numSamples = n()) 
 
 
 closed.summary <- closed %>% 
-  group_by(BeachName) %>%
+  group_by(beach_name) %>%
     summarize(numClosures = n()) 
 
 
@@ -86,11 +132,21 @@ combined.summary
 
 mostclosedlist <- combined.summary$BeachName[1:10]
 
-neverclosedlist <-  combined.summary %>%
-  arrange(percClosed)
 
-neverclosedlist
-# none that are never closed
+# none that are never closed --> NA (not zero)
+
+setwd("G:/My Drive/Research/beaches/data/processed")
+write.csv(combined.summary, "./combined/beachSummary.csv", row.names = FALSE)
+
+
+closed.summary.detailed <- closed %>% 
+  group_by(beach_name, year) %>%
+    summarize(numClosures = n()) 
+
+
+
+################# GET average length of closure --> how? using interval fucntion???
+# will depend on how often it is sampled
 
 
 ```
