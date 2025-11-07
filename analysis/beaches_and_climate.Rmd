@@ -1,0 +1,147 @@
+---
+title: "ecoli and climate"
+author: "Becky Forgrave"
+date: "2025-11-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+library(patchwork)
+library(mnsentinellakes)
+
+```
+
+```{r load compiled beach data}
+
+setwd("G:/My Drive/Research/beaches/data/")
+
+
+beaches <- read.csv("./processed/combined/All_beaches_new_100225_openrefine.csv") %>%
+  janitor::clean_names() %>%
+  filter(!is.na(dow)) %>% # remove swim ponds (don't have DOWs)
+  mutate(dow = fixlakeid(dow)) %>%
+  mutate(date = as.POSIXct(date, format = "%Y-%m-%d"))  %>%
+  mutate(year = year(date)) %>%
+  mutate(month = month(date)) %>%
+  mutate(jday = yday(date)) %>%
+  mutate(week = week(date)) 
+  #filter(date > "2010-01-01" & date < "2025-01-01") # select to dates with most data
+
+closed <- beaches %>%
+  filter(closure_yn == "Y")
+
+
+```
+
+```{r load climate data}
+
+
+clim <- read.csv("./other_variables/climate/daily_precip.csv") %>%
+  janitor::clean_names() %>%
+  mutate(date = as.Date(date, format = "%Y-%m-%d")) %>%
+  mutate(max_temp_F = as.numeric(maximum_temperature_degrees_f)) %>%
+  mutate(min_temp_F = as.numeric(minimum_temperature_degrees_f)) %>%
+  mutate(precip_in = as.numeric(precipitation_inches)) %>%  # Trace precip (T) becomes NA
+  # convert to metric?
+  # mutate(max_temp_C = (as.numeric(maximum_temperature_degrees_f) - 32) *(5/9)) %>%
+  # mutate(min_temp_C = (as.numeric(minimum_temperature_degrees_f) - 32) *(5/9)) %>%
+  # mutate(precip_mm = as.numeric(precipitation_inches)* 25.4) %>%  # Trace precip (T) becomes NA
+  select(date, precip_in, max_temp_F, min_temp_F) %>%
+  filter(date >= "2010-01-01" & date < "2025-01-01")
+
+
+# rolling  48hr  climate (event-scale)
+clim$ante48htotp <- 0
+clim$ante48hmaxt <- 0
+
+for (i in 1:length(clim$date)) {
+  intervalstart <- as.POSIXct(clim$date[i] - 2) #rolling window 2 days before
+  intervalend <-  as.POSIXct(clim$date[i])
+  
+  span48h <-  clim %>%
+    filter(date >= intervalstart & date <= intervalend) # select all data 2 days 
+  
+  clim$ante48htotp[i] <- sum(span48h$precip_in, na.rm = TRUE)
+  clim$ante48hmaxt[i] <- max(span48h$max_temp_F, na.rm = TRUE)
+}
+
+
+
+# rolling 5 day climate 
+clim$ante5dtotp <- 0
+clim$ante5dmaxt <- 0
+
+for (i in 1:length(clim$date)) {
+  intervalstart <- as.POSIXct(clim$date[i] - 5) #rolling window 5 days before
+  intervalend <- as.POSIXct(clim$date[i])
+  
+  span5d <-  clim %>%
+    filter(date >= intervalstart & date <= intervalend) # select all data 5 days 
+  
+  clim$ante5dtotp[i] <- sum(span5d$precip_in, na.rm = TRUE)
+  clim$ante5dmaxt[i] <- max(span5d$max_temp_F, na.rm = TRUE)
+}
+
+
+
+# rolling 30 day climate
+clim$ante30dtotp <- 0
+clim$ante30dmaxt <- 0
+
+for (i in 1:length(clim$date)) {
+  intervalstart <- as.POSIXct(clim$date[i] - 30) #rolling window 30 days before
+  intervalend <-  as.POSIXct(clim$date[i])
+  
+  span30d <-  clim %>%
+    filter(date >= intervalstart & date <= intervalend) # select all data 30 days 
+  
+  clim$ante30dtotp[i] <- sum(span30d$precip_in, na.rm = TRUE)
+  clim$ante30dmaxt[i] <- max(span30d$max_temp_F, na.rm = TRUE)
+}
+
+summary(clim)
+
+
+```
+
+```{r plots with climate data}
+
+beachclim <- left_join(beaches, clim)
+
+
+# event-scale climate and daliy ecoli
+ggplot(beachclim, aes(x = ante48hmaxt, y = ecoli_1d_gm)) +
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  ylim(0, 2500)
+
+ggplot(beachclim, aes(x = ante48htotp, y = ecoli_1d_gm)) +
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  ylim(0, 2500)
+
+
+
+
+
+# 30-day climate and ecoli
+ggplot(beachclim, aes(x = ante30dmaxt, y = ecoli_30d_gm)) +
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  ylim(0, 1250)
+
+ggplot(beachclim, aes(x = ante30dtotp, y = ecoli_30d_gm)) +
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  ylim(0, 1250)
+
+
+# no immediately apparent relationships
+
+# --> multi-variate model needed
+```
+

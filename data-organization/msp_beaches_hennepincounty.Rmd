@@ -355,7 +355,7 @@ henn <- henn  %>%
       false = NA)
   ) 
 
-# rearragne columns
+# rearrange columns
 henn <- henn %>%
   rename(Date = date) %>%
   select(BeachName, DOW, Date, MonitoringOrg, Ecoli_1dGM, Ecoli_30dGM, Ecoli_units, ClosureYN, ClosureReason)
@@ -370,5 +370,8 @@ setwd("G:/My Drive/Research/beaches/data/processed/")
 
 
 write.csv(henn, file = "HennepinCo_100225.csv", row.names = FALSE)
+
+# more lake  names to convert Carver --> Auburn
+# French Park --> french
 
 ```
