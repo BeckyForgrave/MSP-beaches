@@ -1,0 +1,46 @@
+---
+title: "beaches_and_water_level"
+author: "Becky Forgrave"
+date: "2025-11-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+library(patchwork)
+library(mnsentinellakes)
+
+# setwd for whole document
+knitr::opts_knit$set(root.dir = "G:/My Drive/Research/beaches/data/")
+
+```
+
+```{r load compiled beach data}
+
+
+beaches <- read.csv("./processed/combined/All_beaches_new_100225_openrefine.csv") %>%
+  janitor::clean_names() %>%
+  filter(!is.na(dow)) %>% # remove swim ponds (don't have DOWs)
+  mutate(dow = fixlakeid(dow)) %>%
+  mutate(date = as.POSIXct(date, format = "%Y-%m-%d"))  %>%
+  mutate(year = year(date)) %>%
+  mutate(month = month(date)) %>%
+  mutate(jday = yday(date)) %>%
+  mutate(week = week(date)) 
+  #filter(date > "2010-01-01" & date < "2025-01-01") # select to dates with most data
+
+closed <- beaches %>%
+  filter(closure_yn == "Y")
+
+```
+
+```{r load water level data}
+
+level_hiawatha <- read.csv("./other_variables/water_level/hiawatha_water_level.csv")
+
+
+```
+
