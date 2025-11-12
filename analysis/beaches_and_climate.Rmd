@@ -145,3 +145,37 @@ ggplot(beachclim, aes(x = ante30dtotp, y = ecoli_30d_gm)) +
 # --> multi-variate model needed
 ```
 
+```{r load hourly wind data}
+
+setwd("G:/My Drive/Research/beaches/data/other_variables/climate")
+
+wind_hourly <- read.csv("iem_msp_hourly_climate_2010_2015.csv") %>%
+  mutate(datetime = as.POSIXct(valid)) %>%
+  mutate(date = date(datetime)) %>%
+  select(station, date, datetime, tmpf, drct, sknt, gust, peak_wind_gust, peak_wind_drct, peak_wind_time) 
+
+
+summary(wind_h)
+
+
+# calculate daily averages
+wind_daily <- wind_hourly %>%
+  group_by(date) %>%
+  summarize(tavg_F = mean(tmpf, na.rm = T),
+            wdir = round(mean(drct, na.rm = T), digits = -1), # rounded to nearest 10 degrees
+            wspeed_knt = mean(sknt, na.rm = T)) %>%
+  as.data.frame()
+
+
+```
+
+
+```{r plots with wind data}
+
+beachclim <- left_join(clim, wind_daily)
+
+# plots with wind
+
+
+```
+
