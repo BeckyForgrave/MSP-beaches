@@ -1,0 +1,177 @@
+---
+title: "beaches_ElkRiver"
+author: "Becky Forgrave"
+date: "2025-11-14"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(googledrive)
+library(mnsentinellakes)
+library(readxl)
+library(here)
+library(FSA) # for geomean() function
+library(janitor) # for row_to_names() function
+
+here = here() # sets base directory as where the .rmd is saved
+
+```
+
+## Elk River ####
+```{r load combiend data}
+setwd("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches")
+
+
+elkr_raw <- read.csv("./Received data/City of Elk River/ElkRiver_combined.csv") %>%
+  janitor::clean_names() %>%
+  mutate(date = as.Date(date, format = "%m/%d/%Y")) %>%
+  mutate(beach = "Orono")
+
+str(elkr_raw )
+summary(elkr_raw )
+
+```
+
+```{r convert all values to numeric}
+
+
+# Change values with < or > and convert them to the value itself
+elkr <- elkr_raw  %>%
+  mutate(north = str_remove_all(north, "<|>")) %>%
+  mutate(middle = str_remove_all(middle, "<|>")) %>%
+  mutate(south = str_remove_all(south, "<|>"))
+
+
+# convert numeric columns from chr --> num
+elkr <- elkr %>%
+  mutate(north = as.numeric(north)) %>%
+  mutate(middle = as.numeric(middle)) %>%
+  mutate(south = as.numeric(south))
+
+
+str(elkr)
+summary(elkr)
+
+```
+```{r separate samping sites and recombine}
+
+north <- elkr %>%
+  select(date, beach, north) %>%
+  rename(ecoli = north)
+
+middle <- elkr %>%
+  select(date, beach, middle) %>%
+  rename(ecoli = middle)
+
+south <- elkr %>%
+  select(date, beach, south) %>%
+  rename(ecoli = south)
+
+elkr_reshape <- bind_rows(north, middle, south)
+
+rm(middle,north,south)
+
+# remove zeroes --> mess up geometri mean
+elkr_reshape <- elkr_reshape %>%
+  filter(ecoli > 0)
+
+
+```
+
+```{r calculate geometric means}
+
+
+
+# create new column to hold calculated values
+elkr_reshape$Ecoli_1dGM <-0
+elkr_reshape$Ecoli_30dGM <- 0
+
+
+
+# loop through each day
+for (i in 1:length(elkr_reshape$date)) {
+  intervalstart <- as.POSIXct(elkr_reshape$date[i] - 30) # start 30 days before sampling date
+  intervalend <-  as.POSIXct(elkr_reshape$date[i])
+
+  # select all E coli measurements for one day
+  oneday <-  elkr_reshape %>%
+    filter(date == intervalend)
+  
+  # calculate 1 day geometric mean and add it to column in df
+  elkr_reshape$Ecoli_1dGM[i] <- round(geomean(oneday$ecoli, na.rm = TRUE), digits = 1)
+  
+  # select all E coli measurements in 30 day range
+  span30d <-  elkr_reshape %>%
+    filter(date >= intervalstart & date <= intervalend)
+  
+  # calculate 30-day geometric mean and add it to column in df
+  elkr_reshape$Ecoli_30dGM[i] <- round(geomean(span30d$ecoli, na.rm = TRUE), digits = 1)
+  
+}
+
+```
+
+```{r fill additional columns}
+
+# add columns to match master dataset--------------------
+elkr_final <- elkr_reshape %>%
+  filter(!is.na(Ecoli_1dGM)) %>%
+  mutate(
+    ClosureYN = "N",
+    ClosureReason = NA,
+    MonitoringOrg = "ElkRiver", 
+    DOW = "71001300",
+    Ecoli_units = "mpn/100mL")
+
+
+
+# find a label beach closures-------------------------------
+
+elkr_final <- elkr_final  %>%
+  mutate(
+    ClosureYN = if_else(
+      condition = Ecoli_1dGM > 235,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    ClosureReason = if_else(
+      condition = Ecoli_1dGM > 235,
+      true = "ecoli_1dayGM",
+      false = NA)
+  ) %>% 
+  mutate(
+    ClosureYN = if_else(
+      condition = Ecoli_30dGM > 126,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    ClosureReason = if_else(
+      condition = Ecoli_30dGM > 126,
+      true = "ecoli_30dayGM",
+      false = NA)
+  ) 
+
+# rearrange columns
+elkr_final <- elkr_final %>%
+  rename(Date = date) %>%
+  rename(BeachName = beach) %>%
+  select(BeachName, DOW, Date, MonitoringOrg, Ecoli_1dGM, Ecoli_30dGM, Ecoli_units, ClosureYN, ClosureReason)
+
+```
+
+```{r save data}
+
+
+# upload to Google Drive 
+setwd("G:/My Drive/Research/beaches/data/processed/")
+
+
+write.csv(elkr_final, file = "ElkRiver_1114225.csv", row.names = FALSE)
+
+```
