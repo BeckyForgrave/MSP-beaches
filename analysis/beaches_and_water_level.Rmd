@@ -43,4 +43,27 @@ level_hiawatha <- read.csv("./other_variables/water_level/hiawatha_water_level.c
 
 
 ```
+```{r water level API}
+
+
+# install.packages(c("httr", "jsonlite"))
+
+library(httr)
+library(jsonlite)
+
+
+
+response <- GET("https://maps.dnr.state.mn.us/cgi-bin/lakefinder/water_levels_export.cgi?format=csv&id=27001800")
+response
+
+# nope
+data <- fromJSON(rawToChar(response$content))
+data
+
+# is the data itself messed up??
+
+
+hiawa <- waterleveldownload("27001800") # this should be a function in mnsentinellakes but it doesn't work
+
+```
 
