@@ -118,5 +118,6 @@ setwd("G:/My Drive/Research/beaches/data/processed")
 write.csv(all_beaches, "./combined/All_beaches_new_100225.csv", row.names = FALSE)
 
 
+
 ```
 
