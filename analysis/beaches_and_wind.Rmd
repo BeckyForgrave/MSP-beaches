@@ -1,0 +1,94 @@
+---
+title: "beaches_and_wind"
+author: "Becky Forgrave"
+date: "2025-11-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(mnsentinellakes)
+library(tidyverse)
+library(janitor)
+
+```
+
+```{r load beach directionality data}
+
+setwd("G:/My Drive/Research/beaches/data/other_variables/wind")
+
+beachdir <- read.csv("delin_beaches_direction_area.csv") %>%
+  janitor::clean_names() %>%
+  filter(!is.na(dow)) %>% # remove swim ponds (don't have DOWs)
+  mutate(dow = fixlakeid(dow)) 
+
+```
+
+```{r load hourly wind data}
+
+# drct = Wind direction (degrees)
+# sknt = wind speed (knots)
+# sped = wind speed (mph)
+
+wind_hourly <- read.csv("iem_msp_wind_hourly_2000_2005.csv") %>%
+  mutate(datetime = as.POSIXct(valid)) %>%
+  mutate(date = date(datetime)) %>%
+  select(station, date, datetime, drct, sped) 
+
+
+summary(wind_hourly)
+
+```
+
+# need to separate each hourly wind into offshore and alongshore components for each beach
+
+# then summarixe by day
+
+```{r test calcs on one beach}
+
+testbeachdir <- beachdir$dir_degree[2] # bde - 32nd
+
+wind_testcalc <- wind_hourly %>%
+  # offshore component
+  mutate(off = sped*sin((drct-testbeachdir)*(pi/180)) )%>%
+  # alongshore component
+  mutate(along = -sped*cos((drct-testbeachdir)*(pi/180)) )
+
+
+wind_dailyavg <- wind_testcalc %>%
+  group_by(date) %>%
+  summarise(off_daily  = mean(off, na.rm = T),
+            along_daily = mean(along, na.rm = T))
+
+wind_dailyavg
+
+# does alongshore wind even matter for our purposes?
+
+
+# negative offshore = land -> water
+# positive offshore = water --> land
+
+#  do I need to remove zeroes in drct data (N = 360, 0 is no wind)? but no wind is still data...
+
+```
+
+
+```{r}
+
+# loop through all beaches
+
+
+# make a new column (dataframe?) for each beach off shore component
+
+
+# calculate daily average for each beach offshore wind
+
+# join all dataframes back together
+#( need to uniquely name columns )
+
+
+```
+
+
+

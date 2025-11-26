@@ -7,5 +7,43 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+library (tidyverse)
+library(mnsentinellakes)
+
+```
+
+```{r load data}
+
+setwd("G:/My Drive/Research/beaches/data")
+
+beachlist <- read.csv("BeachList.csv") %>%
+  filter(!is.na(DOW)) %>%
+  mutate(DOW = fixlakeid(DOW))
+
+dowlist <- unique(beachlist$DOW)
+
+```
+
+```{r load ts6}
+
+setwd("G:/My Drive/Research/watersheds")
+
+secchi <- read.csv("Timeseries_v6_ALLDOW.csv") %>%
+  mutate(DOW = fixlakeid(DOW)) %>%
+  filter(DOW %in% dowlist) %>%
+  filter(parameter == "secchi.m") %>%
+  mutate(date = as.POSIXct(sampleDate)) %>%
+  filter(date > "2000-01-01")
+
+  
+```
+
+```{r save data}
+
+setwd("G:/My Drive/Research/beaches/data")
+
+write.csv(secchi, "./other_variables/clarity/secchi_from_ts6.csv", row.names = FALSE)
+
 ```
 

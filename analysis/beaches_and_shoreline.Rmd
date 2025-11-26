@@ -1,0 +1,37 @@
+---
+title: "beaches_and_shoreline"
+author: "Becky Forgrave"
+date: "2025-11-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library (tidyverse)
+library(mnsentinellakes)
+
+```
+
+```{r laod data}
+
+# laod DNR lakes
+
+# only select those from dowlist
+
+
+```
+
+```{r make bufffer shapefiles}
+
+
+# make shapefile of buffers (what to do with Minnetonka)
+
+# remove lake to make donut shape
+
+
+# extract % grass and % shrub/tree
+
+```
+
+
