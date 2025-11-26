@@ -8,19 +8,35 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-library (tidyverse)
+library(tidyverse)
+library(lubridate)
+library(patchwork)
 library(mnsentinellakes)
 
 ```
 
-```{r laod data}
 
-# laod DNR lakes
+```{r load compiled beach data}
 
-# only select those from dowlist
+setwd("G:/My Drive/Research/beaches/data/")
+
+beaches <- read.csv("./processed/combined/All_beaches_new_100225_openrefine.csv") %>%
+  janitor::clean_names() %>%
+  filter(!is.na(dow)) %>% # remove swim ponds (don't have DOWs)
+  mutate(dow = fixlakeid(dow)) %>%
+  mutate(date = as.POSIXct(date, format = "%Y-%m-%d"))  %>%
+  mutate(year = year(date)) %>%
+  mutate(month = month(date)) %>%
+  mutate(jday = yday(date)) %>%
+  mutate(week = week(date)) 
+  #filter(date > "2010-01-01" & date < "2025-01-01") # select to dates with most data
+
+closed <- beaches %>%
+  filter(closure_yn == "Y")
 
 
 ```
+
 
 ```{r make bufffer shapefiles}
 
@@ -31,6 +47,27 @@ library(mnsentinellakes)
 
 
 # extract % grass and % shrub/tree
+
+```
+
+
+```{r load spatial data}
+
+
+lakes
+
+
+nlcd
+
+
+```
+
+```{r shoreline buffers}
+
+# create buffer polygon
+
+
+# extract land cover and summarize
 
 ```
 

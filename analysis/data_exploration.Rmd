@@ -30,7 +30,6 @@ beaches <- read.csv("./processed/combined/All_beaches_new_100225_openrefine.csv"
   mutate(year = year(date)) %>%
   mutate(month = month(date)) %>%
   mutate(jday = yday(date)) %>%
-  mutate(week = week(date)) 
   # filter(date > "2010-01-01" & date < "2025-01-01") # select to dates with most data
 
 closed <- beaches %>%
@@ -83,10 +82,10 @@ closed_new <- beaches_new %>%
 ```{r data exploration}
 
 length(unique(beaches$beach_name))
-
+# 81 beaches
 
 length(unique(beaches$dow))
-
+# 59 lakes 
 
 
 
@@ -101,7 +100,7 @@ ggplot(closed_new, aes(x = closure_reason)) +
 closures.summary <- closed %>% 
   group_by(closure_reason) %>%
     summarize(n = n(),
-              perc = round((n/length(closed$BeachName))*100,digits = 2))
+              perc = round((n/length(closed$beach_name))*100,digits = 2))
 closures.summary
 
 
@@ -130,7 +129,7 @@ combined.summary <- left_join(beach.summary, closed.summary) %>%
 combined.summary
 
 
-mostclosedlist <- combined.summary$BeachName[1:10]
+mostclosedlist <- combined.summary$beach_name[1:10]
 
 
 # none that are never closed --> NA (not zero)
@@ -151,26 +150,88 @@ closed.summary.detailed <- closed %>%
 
 ```
 
+```{r histograms}
+
+
+closed.by.year <-  beaches %>%
+  filter(closure_yn == "Y") %>% 
+  group_by(year) %>%
+    summarize(nClosures = n()) 
+
+
+beaches.by.year <- beaches %>% 
+  group_by(year) %>%
+    summarize(nSamples = n())
+
+
+year.summary  <- left_join(beaches.by.year , closed.by.year) %>%
+  mutate(percClosed = round((nClosures/nSamples) *100)) %>%
+  arrange(desc(percClosed))
+
+
+
+percclosedplot <- ggplot(year.summary, aes(x=year, y=percClosed)) +
+  geom_col(fill = "darkorange") + 
+  ylab("% of days closed") + xlab("") +
+  xlim(2005, 2025) + 
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + 
+  theme(text = element_text(size = 20))
+
+
+# plot number of samples each year
+percsamplesplot <- ggplot(year.summary, aes(x=year, y=nSamples)) +
+  geom_col(fill = "darkgreen") + 
+  ylab("Samples collected") +  xlab("") +
+  xlim(2005, 2025) + 
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + 
+  theme(text = element_text(size = 20))
+
+histplot <- percclosedplot  / percsamplesplot 
+histplot
+
+
+setwd("G:/My Drive/Research/beaches/output/figures/")
+
+ggsave("yearlyclosureshist.png", plot = histplot, width = 10, height = 5, units = "in")
+
+
+
+```
+
 ```{r plots}
 
 # whole time series
-ggplot(beaches, aes(x=Date, y=Ecoli_1dGM)) +
+ggplot(beaches, aes(x=date, y=ecoli_1d_gm)) +
   geom_point() +
   ylim(0,2500)
 
 # throughout monitoring season
-ggplot(beaches, aes(x=Jday, y=Ecoli_1dGM, color = ClosureYN)) +
+ggplot(beaches, aes(x=jday, y=ecoli_1d_gm, color = closure_yn)) +
   geom_point() +
   ylim(0,2500)
 # more closures later in season but they can be any time
+
+
+ggplot(beaches, aes(x=jday, y=ecoli_1d_gm)) +
+  geom_point() +
+  geom_smooth() + 
+  ylim(0,2500)
+
 
 ```
 ```{r averages}
 
 # average all beaches for each day (each week?)
 avg_ecoli <- beaches %>%
-  group_by(Date) %>%
-  summarize(ecoli_allbeachesmean = mean(Ecoli_1dGM))
+  group_by(year, week) %>%
+  summarize(ecoli_allbeachesmean = mean(ecoli_1d_gm))
+
+ggplot(avg_ecoli, aes(x=week, y=ecoli_allbeachesmean, group = year, color = year)) +
+  geom_point() +
+  geom_smooth(se= FALSE) 
+
 
 # whole time series
 ggplot(avg_ecoli, aes(x=Date, y=ecoli_allbeachesmean)) +
@@ -223,19 +284,19 @@ dclim <- read.csv("./other_variables/daily_precip.csv") %>%
   filter(date >= "2010-01-01" & date < "2025-01-01")
 
 
-dclim$ante5dptot <- 0
-dclim$ante5avgmaxt <- 0
+dclim$ante2dptot <- 0
+dclim$ante2avgmaxt <- 0
 
 # rolling 5 day climate
 for (i in 1:length(dclim$date)) {
-  intervalstart <- as.POSIXct(dclim$date[i] - 5) #rolling window 5 days before
+  intervalstart <- as.POSIXct(dclim$date[i] - 2) #rolling window 5 days before
   intervalend <-  as.POSIXct(dclim$date[i])
   
-  span5d <-  dclim %>%
+  span2d <-  dclim %>%
     filter(date >= intervalstart & date <= intervalend) # select all data 5 days 
   
-  dclim$ante5dptot[i] <- sum(span5d$precip_mm, na.rm = TRUE)
-  dclim$ante5avgmaxt[i] <- mean(span5d$max_temp_degC, na.rm = TRUE)
+  dclim$ante2dptot[i] <- sum(span2d$precip_mm, na.rm = TRUE)
+  dclim$ante2avgmaxt[i] <- mean(span2d$max_temp_degC, na.rm = TRUE)
 }
 
 summary(dclim)
@@ -259,11 +320,13 @@ summary(dclim)
 
 ```{r explore weekly precip}
 # 
-# ggplot(wprecip, aes(x=w, y=weeklyPtotal)) + 
+# ggplot(wprecip, aes(x=w, y=ante5dptot)) + 
 #   geom_point() 
 # 
-# ggplot(wprecip, aes(x=yw, y=weeklyPtotal)) + 
+# ggplot(wprecip, aes(x=yw, y=ante5dptot)) + 
 #   geom_point()  $# too much data
+
+
 
 ```
 
@@ -271,10 +334,36 @@ summary(dclim)
  
 combined <- left_join(beaches, dclim)
 
-ggplot(combined, aes(x=ante5dptot, y=ecoli_1d_gm)) + 
-      geom_point()
+combined <- combined %>%
+  mutate(logecoli = log10(ecoli_1d_gm))
+
+precipplot <- ggplot(combined, aes(x=ante2dptot, y=logecoli)) + 
+  geom_point() + 
+  geom_smooth() +
+  xlim(0,90) +
+  ylim(0,3.5) + 
+  ylab("log E. coli (cfu/100mL)") +
+  xlab("48-hour antecedent precipitation (mm)") +
+  theme_bw() +
+  theme(text=element_text(size = 20))
 
 
+# higher ecoli with more precipitation up to a point but then it decreases (dilution?)
+# hard to get temp in there too as a variable
+
+tempplot <- ggplot(combined, aes(x=ante2avgmaxt, y=logecoli)) + 
+  geom_point() + 
+  geom_smooth() +
+  ylim(0,3.5) + 
+  ylab("log E. coli (cfu/100mL)") +
+  xlab("48-hour average daily maximum temperature (C)") +
+  theme_bw() +
+  theme(text=element_text(size = 20))
+
+setwd("G:/My Drive/Research/beaches/output/figures/")
+
+ggsave("precipecoliplot.png", plot = precipplot, width = 8, height = 5, units = "in")
+ggsave("tempecoliplot.png", plot = tempplot, width = 8, height = 5, units = "in")
 
 ```
 
@@ -376,8 +465,195 @@ tempavg.plot / precip.plot /closed.plot
 
 ```
 
-# WATERSHEDS
-```{r watershed data?}
+# WATERSHEDS and lakes
+
+```{r lake wq data}
+
+setwd("G:/My Drive/Research/watersheds")
+
+# clarity
+clarity <- read.csv("Timeseries_v6_ALLDOW.csv") %>%
+  mutate(date = as.Date(sampleDate)) %>%
+  mutate(dow = fixlakeid(DOW)) %>%
+  filter(parameter == "secchi.m") %>%
+  mutate(year = sampleYear)%>%
+  mutate(week = week(date))
+
+
+beachsecchi <- left_join(beaches, clarity)
+
+ggplot(beachsecchi, aes(x=result, y=ecoli_1d_gm)) +
+  geom_point() + 
+  geom_smooth(method = lm) +
+  xlab("Yearly average Secchi depth (m)") + 
+  ylab("Yearly average E.coli (mpn/100mL)")
+
+
+
+
+# mean ecoli for each beach, each week, each year --> is this a useful metric?
+weeklyavgecolibybeach <- beaches %>%
+  group_by(week, year, dow) %>%
+  summarize(avgEcoli = mean(ecoli_1d_gm)) %>%
+  ungroup()
+
+weeklyavgclarity <- clarity %>%
+  group_by(week, dow, year) %>%
+  summarize(avgSecchi = mean(result)) %>%
+  ungroup()
+
+
+weeklyavgecolibybeach <- left_join(weeklyvgecolibybeach, weeklyavgclarity)
+
+secchiplot <- ggplot(avgecolibybeach, aes(x=avgSecchi, y=log10(avgEcoli))) +
+  geom_point() + 
+  geom_smooth(method = lm) +
+  xlab("Secchi depth (m)") + 
+  ylab("log E.coli (mpn/100mL)") + 
+  xlim(0,10) + 
+  ylim(0, 2) +
+  theme_bw() +
+  theme(text=element_text(size = 20))
+
+setwd("G:/My Drive/Research/beaches/output/figures/")
+
+ggsave("secchiecoliplot.png", plot = secchiplot, width = 8, height = 5, units = "in")
+
+
+
+# higher ecoli in shallower lakes --> or just cloudier ones?
+
+sec.lm <- lm(avgEcoli~ avgSecchi, data= avgecolibybeach)
+summary(sec.lm)
+# nope
+
+
+# yearly averages
+yearlyavgecolibybeach <- beaches %>%
+  group_by(year, dow) %>%
+  summarize(avgEcoli = mean(ecoli_1d_gm)) %>%
+  ungroup()
+
+yearlyavgclarity <- clarity %>%
+  group_by(dow, year) %>%
+  summarize(avgSecchi = mean(result)) %>%
+  ungroup()
+
+yearlyavgecolibybeach <- left_join(yearlyavgecolibybeach, yearlyavgclarity)
+
+
+```
+```{r lake parameters}
+
+setwd("G:/My Drive/Research/watersheds")
+
+
+mls <- read.csv("MLS3_openrefine10-23-23.csv") %>%
+  filter(!is.na(DOW)) %>%
+  mutate(dow = fixlakeid(DOW))
+
+lakeparams <- mls %>%
+  select(LAKENAME, dow, LakeArea.ac, LittoralArea.ac, MeanDepth.m, MaxDepth.m)
+
+lakeparams <- left_join(avgecolibybeach, lakeparams)
+
+ggplot(lakeparams, aes(x=LakeDepth.m, y=avgEcoli)) +
+  geom_point() + 
+  geom_smooth(method = lm)
+# generally higher ecoli in shallower lakes
+
+```
+
+```{r watershed data}
+
+setwd("G:/My Drive/Research/watersheds/output")
+
+ws1 <- read.csv("ws_metrics_combined_fixed.csv") %>% # missing a lot of them
+  rename(dow = DOW)%>%
+  mutate(dow = fixlakeid(dow))
+
+
+ws2 <- read.csv("ws_metrics_treecanopy_10-23-24.csv") %>%
+  rename(dow = DOW)%>%
+  mutate(dow = fixlakeid(dow))
+
+
+
+beachws1 <- left_join(yearlyavgecolibybeach, ws1)
+beachws2 <- left_join(yearlyavgecolibybeach, ws2)
+
+ggplot(beachws2, aes(x=wsarea_sqkm, y=log10(avgEcoli))) +
+  geom_point() + 
+  geom_smooth() + 
+  xlim(0,20)
+
+ggplot(beachws2, aes(x=percRoad, y=log10(avgEcoli))) +
+  geom_point() + 
+  geom_smooth() 
+
+ggplot(beachws1, aes(x=percAg, y=log10(avgEcoli))) +
+  geom_point() + 
+  geom_smooth() 
+
+develplot <- ggplot(beachws1, aes(x=percDevel, y=log10(avgEcoli))) +
+  geom_point() +
+  xlab("% developed land use") +
+  ylab("log yearly-average Ecoli (mpn/100mL)") + 
+  theme_bw() +
+  theme(text=element_text(size = 20))
+
+setwd("G:/My Drive/Research/beaches/output/figures/")
+
+ggsave("developedecoliplot.png", plot = develplot, width = 8, height = 5, units = "in")
+
+  
+
+
+```
+
+```{r habs closures}
+
+setwd("G:/Shared drives/MSP LTER - Public/Q2 - Lakes and Watersheds/Q2.2 - Lakes & Surface Waters/TCMA Lake Research/Research initiatives/Beaches/Processed data")
+
+habs <- read.csv("MPRB_habs_081125.csv") %>%
+  rename(date = Date) %>%
+  mutate(date = as.Date(date)) %>%
+  filter(!is.na(Microcystin_ugL)) %>%
+  mutate(year = as.factor(year(date))) %>%
+  mutate(jday = yday(date)) %>%
+  mutate(week = week(date))
+
+ggplot(habs, aes(x=date, y=Microcystin_ugL, color = BeachName)) +
+  geom_point() + 
+  geom_smooth(se = FALSE)
+
+
+ggplot(habs, aes(x=jday, y=Microcystin_ugL, color = BeachName)) +
+  geom_point() + 
+  geom_smooth(se = FALSE)
+
+
+
+habs %>%
+  filter(DOW == "27001900") %>%
+  ggplot(aes(x=jday, y=Microcystin_ugL, color = year)) +
+    geom_point() + 
+    geom_smooth(se = FALSE) + 
+    scale_color_discrete()
+
+
+habsclim <- left_join(habs, dclim)
+
+ggplot(habsclim, aes(x=ante2dptot, y = log10(Microcystin_ugL))) + 
+      geom_point() + 
+      geom_smooth()
+
+
+ggplot(habsclim, aes(x=ante2avgmaxt, y = log10(Microcystin_ugL))) + 
+      geom_point() + 
+      geom_smooth()
+
+# what other climate parameters exist? --> look at literature
 
 ```
 

@@ -88,4 +88,3 @@ waterlevelall  <- waterlevelall  %>%
 write.csv(waterlevelall, "./other_variables/water_level/allwaterleveldata.csv", row.names = FALSE)
 
 ```
-
