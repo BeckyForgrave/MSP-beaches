@@ -1,0 +1,98 @@
+---
+title: "seasonal ecoli"
+author: "Becky Forgrave"
+date: "2025-12-04"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(mnsentinellakes)
+library(tidyverse)
+library(janitor)
+library(lubridate)
+
+```
+
+```{r load all data}
+
+setwd("G:/My Drive/Research/beaches/data/")
+
+# beach list
+beaches <- read.csv("BeachList.csv") %>%
+  janitor::clean_names() %>%
+  filter(!is.na(dow)) %>% # remove swim ponds (don't have DOWs)
+  mutate(dow = fixlakeid(dow))
+
+# ecoli
+ecoli <- read.csv("./processed/combined/All_beaches_new_100225_openrefine.csv") %>%
+  janitor::clean_names() %>%
+  filter(!is.na(dow)) %>% # remove swim ponds (don't have DOWs)
+  mutate(dow = fixlakeid(dow)) %>%
+  mutate(date = as.POSIXct(date, format = "%Y-%m-%d")) %>% 
+  mutate(year = year(date)) %>%
+  mutate(month = month(date))  %>%
+  mutate(jday = yday(date))  %>%
+  mutate(week = week(date)) 
+
+closed <- ecoli %>%
+  filter(closure_yn == "Y")
+
+```
+
+```{r which beaches close the most often}
+
+# table of number of beach closures per beach in whole dataset
+beach.summary <- ecoli %>% 
+  group_by(beach_name) %>%
+    summarize(startYear = min(year), 
+              endYear = max(year),
+              numSamples = n()) 
+
+
+closed.summary <- closed %>% 
+  group_by(beach_name) %>%
+    summarize(numClosures = n()) 
+
+
+combined.summary <- left_join(beach.summary, closed.summary) %>%
+  mutate(percClosed = round((numClosures/numSamples) *100)) %>%
+  arrange(desc(percClosed))
+combined.summary
+
+
+mostclosedlist <- combined.summary$beach_name[1:10]
+
+
+```
+
+```{r seasonal histograph}
+
+hist(closed$jday)
+
+ggplot(closed, aes(x=jday)) + 
+  geom_histogram(binwidth = 7, fill = "blue", color = "darkblue") +
+  xlab("Day of year") + 
+  ylab("Number of closures") + 
+  theme_bw() +
+  theme(text = element_text(size = 20))
+
+min(closed$jday) # May 19
+max(closed$jday) # Sept 12
+
+# # get number of days -> 116
+# as.Date("2025-09-12") - as.Date("2025-05-19")  
+# # not  actually necessary
+
+# bad plot
+# ggplot(ecoli, aes(x=jday, y=log10(ecoli_1d_gm))) + 
+#   geom_point() + 
+#   geom_smooth()
+
+
+
+```
+
+

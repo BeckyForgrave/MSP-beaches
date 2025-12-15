@@ -63,7 +63,7 @@ wind_dailyavg <- wind_testcalc %>%
 
 wind_dailyavg
 
-# does alongshore wind even matter for our purposes?
+# does alongshore wind even matter for our purposes? no
 
 
 # negative offshore = land -> water
@@ -76,19 +76,48 @@ wind_dailyavg
 
 ```{r}
 
+
+wind_daily_combined <- unique(wind_hourly$date)
+
 # loop through all beaches
+for (i in 1:length(beachdir$dow)) {
+
+  # make a new column (dataframe?) for each beach off shore component
+  dir <- beachdir$dir_degree[i]
+  dow <- beachdir$dow[i]
+  beach <- beachdir$beach_name[i]
+  
+  wind_hourly <- wind_hourly %>%
+    mutate(offshore = sped*sin((drct-dir)*(pi/180)) )
+  
+  # calculate daily average for each beach offshore wind
+  wind_daily <- wind_hourly %>%
+    group_by(date) %>%
+    summarise(off_daily  = mean(offshore, na.rm = T)) %>%
+    mutate(beach_name = beach)
+  
+  # join all dataframes back together
+  wind_daily_combined <- rbind(wind_daily_combined, wind_daily)
+
+}
+
+# will make one really long dataset of all daily winds and beaches
 
 
-# make a new column (dataframe?) for each beach off shore component
+# for some reason the rbind messes up the first row of the first beach --> remove it
+wind_daily_combined <- wind_daily_combined %>%
+  filter(off_daily < 1000)
+  
 
-
-# calculate daily average for each beach offshore wind
-
-# join all dataframes back together
-#( need to uniquely name columns )
-
+hist(wind_daily_combined$off_daily)
 
 ```
 
 
+```{r save to file}
+
+write.csv(wind_daily_combined, "avg_daily_offshore_wind.csv", row.names = FALSE)
+
+
+```
 

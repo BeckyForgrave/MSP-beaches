@@ -33,6 +33,8 @@ mprb <- read.csv("MPRB_Ecoli_081125.csv") %>%
   mutate(DOW = as.character(DOW)) %>%
   mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
 
+
+
 ramco <- read.csv("RamseyCo_081125.csv") %>%
   mutate(DOW = as.character(DOW)) %>%
   mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
@@ -40,17 +42,21 @@ ramco <- read.csv("RamseyCo_081125.csv") %>%
 henco <- read.csv("HennepinCo_100225.csv") %>%
   mutate(DOW = as.character(DOW)) %>%
   mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
-
 henco <- unique(henco)
-
 
 dakco  <- read.csv("DakotaCo_092325.csv") %>%
   mutate(DOW = as.character(DOW)) %>%
   mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
   
+wrico <- read.csv("WrightCo_120925.csv") %>% 
+  mutate(DOW = as.character(DOW)) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+
+
+
 blaine <- read.csv("Blaine_081125_bf.csv") %>%
   mutate(DOW = as.character(DOW)) %>%
-  mutate(Date = as.Date(Date, format = "%Y-%m-%d")) # dates are messed up but not enough data to care about
+  mutate(Date = as.Date(Date, format = "%m/%d/%Y")) 
 
 burnsville <- read.csv("MSP-beaches_Burnsville_clean.csv") %>%
   mutate(DOW = as.character(DOW)) %>%
@@ -71,6 +77,13 @@ lakeville <- read.csv("Lakeville_091825.csv") %>%
   mutate(DOW = as.character(DOW)) %>%
   mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
 
+# bloomington <- read.csv("______________.csv") %>% # still needs to be organized
+#   mutate(DOW = as.character(DOW)) %>%
+#   mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+ 
+elkriver <- read.csv("ElkRiver_111425.csv") %>%
+  mutate(DOW = as.character(DOW)) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
 
 
 
@@ -97,7 +110,7 @@ rm(priorlake1, priorlake2)
 
 ```{r combine}
 
-all_beaches <- rbind(blaine, burnsville, lakeville, minnetonka, mprb, priorlake, ramco, dakco, henco, trpd, woodbury)
+all_beaches <- rbind(trpd, mprb, ramco, dakco, henco, wrico, blaine, burnsville, bloomington, lakeville, minnetonka, woodbury, elkriver, priorlake)
 
 
 
@@ -115,7 +128,7 @@ summary(all_beaches)
 getwd()
 
 setwd("G:/My Drive/Research/beaches/data/processed")
-write.csv(all_beaches, "./combined/All_beaches_new_100225.csv", row.names = FALSE)
+write.csv(all_beaches, "./combined/All_beaches_new_120925.csv", row.names = FALSE)
 
 
 

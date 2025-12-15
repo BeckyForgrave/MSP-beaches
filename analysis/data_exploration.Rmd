@@ -543,6 +543,7 @@ yearlyavgecolibybeach <- left_join(yearlyavgecolibybeach, yearlyavgclarity)
 
 
 ```
+
 ```{r lake parameters}
 
 setwd("G:/My Drive/Research/watersheds")

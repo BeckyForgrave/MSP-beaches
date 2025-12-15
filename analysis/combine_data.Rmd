@@ -1,0 +1,105 @@
+---
+title: "combine_all_data"
+author: "Becky Forgrave"
+date: "2025-12-01"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(mnsentinellakes)
+library(tidyverse)
+library(janitor)
+
+```
+
+```{r load all data}
+
+setwd("G:/My Drive/Research/beaches/data/")
+
+# beach list
+beaches <- read.csv("BeachList.csv") %>%
+  janitor::clean_names() %>%
+  filter(!is.na(dow)) %>% # remove swim ponds (don't have DOWs)
+  mutate(dow = fixlakeid(dow))
+
+# ecoli
+ecoli <- read.csv("./processed/combined/All_beaches_new_100225_openrefine.csv") %>%
+  janitor::clean_names() %>%
+  filter(!is.na(dow)) %>% # remove swim ponds (don't have DOWs)
+  mutate(dow = fixlakeid(dow)) %>%
+  mutate(date = as.POSIXct(date, format = "%Y-%m-%d"))  
+  # mutate(year = year(date)) 
+  # mutate(month = month(date)) 
+  # mutate(jday = yday(date)) 
+  # mutate(week = week(date)) 
+
+# climate
+clim <- read.csv("./other_variables/climate/allclimate.csv") %>%
+  janitor::clean_names() %>%
+   mutate(date = as.POSIXct(date, format = "%Y-%m-%d"))  
+
+# wind
+wind <- read.csv("./other_variables/wind/avg_daily_offshore_wind.csv") %>%
+  janitor::clean_names() %>%
+  mutate(date = as.POSIXct(date, format = "%Y-%m-%d"))  
+
+# water level
+water_level <- read.csv("./other_variables/water_level/allwaterleveldata.csv") %>%
+  janitor::clean_names() %>%
+  mutate(dow = fixlakeid(dow)) %>%
+  mutate(date = as.POSIXct(date, format = "%Y-%m-%d"))  
+
+# clarity
+secchi <- read.csv("./other_variables/clarity/secchi_from_ts6.csv") %>%
+  janitor::clean_names() %>%
+  mutate(dow = fixlakeid(dow)) %>%
+  mutate(date = as.POSIXct(date, format = "%Y-%m-%d"))  
+
+# beach physical parameters (area, direction)
+beach_area <- read.csv("./other_variables/wind/delin_beaches_direction_area.csv") %>%
+  janitor::clean_names() %>%
+  filter(!is.na(dow)) %>% # remove swim ponds (don't have DOWs)
+  mutate(dow = fixlakeid(dow))
+
+# lake physical parame"ters (area)
+lake_area <- read.csv("./other_variables/lakes/lakes_with_beaches_area_dupRem.csv") %>%
+  rename(dow = dowlknum) %>%
+  mutate(dow = fixlakeid(dow)) %>%
+  select(dow, pw_basin, acres)
+
+
+# shoreline
+
+```
+
+```{r}
+# will need to interpolate secchi  and water level but only for the open water seasons
+```
+
+```{r combine}
+
+data <- left_join(ecoli, clim)
+
+data <- left_join(data, wind)  
+
+data <- left_join(data, beach_area)
+
+data <- left_join(data, water_level) # one-to-many error
+
+data <- left_join(data, lake_area)  # one-to-many error
+
+data <- left_join(data, secchi)
+
+
+data <- left_join(data, secchi) # need to find a solution for dates that don't perfectly line up (some buffer zone of time?)
+
+```
+
+
+
+
+```
+

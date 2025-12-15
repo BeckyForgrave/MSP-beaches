@@ -62,10 +62,12 @@ beachlist <- read.csv("BeachList.csv") %>%
 
 dowlist <- unique(beachlist$DOW)
 
+# alimagnet lake in ecoli data but not in beach list because no beach
+
 
 ```
 
-```{r loop throgh all DOws to get water level}
+```{r loop through all DOws to get water level}
 
 waterlevelall <- data.frame()
   
@@ -86,5 +88,35 @@ waterlevelall  <- waterlevelall  %>%
 ```{r save to file}
 
 write.csv(waterlevelall, "./other_variables/water_level/allwaterleveldata.csv", row.names = FALSE)
+
+```
+
+```{r interpolate days?}
+
+ # interpolate days to get more to match up with ecoli data
+
+# but a challenge with gaps in the winter
+```
+
+
+```{r plots}
+
+data <- left_join(ecoli, water_level, relationship = "many-to-many") # can't find errors
+
+ggplot(data, aes(x = elevation_m, y = log10(ecoli_1d_gm))) +
+    geom_point() + 
+    geom_smooth()
+
+```
+
+``` {r}
+
+data <- left_join(ecoli, wind, relationship = "many-to-many")
+
+ggplot(data, aes(x = off_daily, y = log10(ecoli_1d_gm))) +
+    geom_point() + 
+    geom_smooth()
+
+# need to do some aggregaion of wind to several days before...
 
 ```
