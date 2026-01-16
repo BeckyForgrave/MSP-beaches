@@ -27,6 +27,64 @@ bloomington_raw <- read_excel(
   path = "MSP-beaches_Bloomington_raw.xlsx"
 )
 
+# Functions ---------------------------------------------------------------
+## Calculate geometric mean----
+geomean <- function(df, window) {
+               # df contains the following cols: Date (contains date info),
+               # Meas_value (contains values to be used for calculating
+               # geometric mean)
+               # window is numeric to indicate how many days prior to date of
+               # interest to include when calculating geometric mean
+  row_count <- nrow(df)                   # Create variable with length of df
+  output_geomean <- numeric(row_count)    # Create vector to store calculations
+  output_n <- numeric(row_count)          # Create vector to store sample size
+  col_geomean <- paste(                   # Create col name for geometric mean
+    "Ecoli_",
+    as.character(window), 
+    "dGM", 
+    sep = ""
+    )
+  col_n <- paste(                         # Create col name for sample size
+    "Ecoli_",
+    as.character(window), 
+    "dGM_n", 
+    sep = ""
+    )
+  
+  for (i in seq_len(row_count)) {        # Compute following for each row in df
+    index_match <-                       # Find indices in desired date range
+      df$Date >= as_date(df$Date[i]) - window &
+      df$Date <= as_date(df$Date[i])
+    
+    n_count <- length(                   # Find sample size
+      which(index_match == TRUE)
+      )
+    
+    calc_prod <- prod(                   # Find the product of values
+      df$Meas_value[index_match],
+      na.rm = TRUE                       # Do not include missing values
+    )
+    calc_base <- calc_prod^(1/n_count)   # Find product to power of 1/n
+    
+    output_geomean[i] <- calc_base       # add geometric mean to vector
+    output_n[i] <- n_count               # add sample size to vector
+  }                                      # end "for" loop
+  
+  if(any(df$Meas_value == 0)) {          # Check for any 0's in data
+    print("At least one 0 present in data")
+  } else {
+    print("Calculations complete")
+  }                                      # end "if" loop
+  
+  df[[col_geomean]] <- with(             # add geometric mean vector to df
+    df, output_geomean
+    )
+  df[[col_n]] <- with(                   # add sample size vector to df
+    df, output_n
+    )
+  return(df)                             # output = updated df
+}                                        # end function
+
 # Check data --------------------------------------------------------------
 ## Create copy to manipulate
 bloomington_wide <- bloomington_raw
@@ -123,3 +181,73 @@ unique(check$Lab)
 length(which(check$Lab == "wl"))
 length(which(check$Lab == "mpls"))
 sum(is.na(check$Lab))
+
+# Filter for ecoli data and year >= 2007 ----------------------------------
+ecoli <- bloomington_long %>%
+  filter(
+    Meas_type == "ecoli" &
+      Date >= "2007-01-01"
+  )
+
+# Calculate geometric means -----------------------------------------------
+ecoli_geomean <- geomean(    # calculate 1 day mean
+  ecoli, 1
+)
+
+ecoli_geomean <- geomean(    # calculate 30 day mean
+  ecoli_geomean, 30
+)
+
+# Find beach closures -----------------------------------------------------
+## Priority 1: 1 day geometric mean > 235
+## Priority 2: 30 geometric mean > 126
+ecoli_geomean <- ecoli_geomean %>%
+  mutate(
+    ClosureYN = if_else(        # closures for 1 day geomean > 235
+      Ecoli_1dGM > 235,
+      true = "Y",
+      false = "N"
+    ),
+    ClosureReason = if_else(   # closure reason for 1 day geomean > 235
+      Ecoli_1dGM > 235,
+      true = "ecoli_1dayGM",
+      false = NA
+    ),
+    ClosureYN = if_else(        # closures for 30 day geomean > 126
+      Ecoli_30dGM > 126 &
+        is.na(ClosureReason),
+      true = "Y",
+      false = ClosureYN
+    ),
+    ClosureReason = if_else(   # closure reason for 30 day geomean > 126
+      Ecoli_30dGM > 126 &
+        is.na(ClosureReason),
+      true = "ecoli_30dayGM",
+      false = ClosureReason
+    )
+  )
+
+# Finish standardizing df for analysis ------------------------------------
+str(ecoli_geomean)
+
+ecoli_geomean <- ecoli_geomean %>%
+  rename(                              # rename units col
+    Ecoli_units = Meas_unit
+  ) %>%
+  select(                              # keep needed cols
+    DOW, Date, Ecoli_1dGM, Ecoli_30dGM, Ecoli_units, ClosureYN, ClosureReason, 
+    MonitoringOrg
+  ) %>%
+  mutate(                              # add beach name to df
+    BeachName = "Bush Lake Beach",
+    .before = DOW
+  )
+
+# Save as csv -------------------------------------------------------------
+write_csv(
+  ecoli_geomean,
+  file = here("MSP-beaches_Bloomington_clean")
+)
+
+
+  
