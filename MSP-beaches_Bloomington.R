@@ -246,7 +246,7 @@ ecoli_geomean <- ecoli_geomean %>%
 # Save as csv -------------------------------------------------------------
 write_csv(
   ecoli_geomean,
-  file = here("MSP-beaches_Bloomington_clean")
+  file = here("MSP-beaches_Bloomington_clean.csv")
 )
 
 
