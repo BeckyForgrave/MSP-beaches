@@ -28,6 +28,8 @@ bloomington_raw <- read_excel(
 )
 
 # Functions ---------------------------------------------------------------
+## Checked following function against geomean function from FSA; the 
+## following function appears to get the same answer as FSA::geomean
 ## Calculate geometric mean----
 geomean <- function(df, window) {
                # df contains the following cols: Date (contains date info),
