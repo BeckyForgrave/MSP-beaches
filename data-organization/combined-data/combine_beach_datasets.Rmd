@@ -30,61 +30,61 @@ trpd <- read.csv("TRPD_081125.csv") %>%
   mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
 
 mprb <- read.csv("MPRB_Ecoli_081125.csv") %>%
-  mutate(DOW = as.character(DOW)) %>%
+ mutate(DOW = fixlakeid(DOW)) %>%
   mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
 
 
 
 ramco <- read.csv("RamseyCo_081125.csv") %>%
-  mutate(DOW = as.character(DOW)) %>%
+  mutate(DOW = fixlakeid(DOW)) %>%
   mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
 
 henco <- read.csv("HennepinCo_100225.csv") %>%
-  mutate(DOW = as.character(DOW)) %>%
+  mutate(DOW = fixlakeid(DOW)) %>%
   mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
 henco <- unique(henco)
 
 dakco  <- read.csv("DakotaCo_092325.csv") %>%
-  mutate(DOW = as.character(DOW)) %>%
+  mutate(DOW = fixlakeid(DOW)) %>%
   mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
   
 wrico <- read.csv("WrightCo_120925.csv") %>% 
-  mutate(DOW = as.character(DOW)) %>%
-  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+  mutate(DOW = fixlakeid(DOW)) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d")) %>%
+   select(-Notes)
 
 
 
 blaine <- read.csv("Blaine_081125_bf.csv") %>%
-  mutate(DOW = as.character(DOW)) %>%
+  mutate(DOW = fixlakeid(DOW)) %>% 
   mutate(Date = as.Date(Date, format = "%m/%d/%Y")) 
 
-burnsville <- read.csv("MSP-beaches_Burnsville_clean.csv") %>%
-  mutate(DOW = as.character(DOW)) %>%
+bloomington <- read.csv("MSP-beaches_Bloomington_clean.csv") %>%
+  mutate(DOW = fixlakeid(DOW)) %>%
   mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
 
-minnetonka <- read.csv("MSP-beaches_Minnetonka_clean.csv") %>%
-  mutate(DOW = as.character(DOW)) %>%
-  mutate(Date = as.Date(Date, format = "%Y-%m-%d")) %>%
-  select(-Notes)
 
-woodbury <- read.csv("Woodbury_091725.csv") %>%
-  mutate(DOW = as.character(DOW)) %>%
-  mutate(date = as.Date(date, format = "%Y-%m-%d")) %>%
-  rename(Date = date) %>%
-  select(-units)
+burnsville <- read.csv("MSP-beaches_Burnsville_clean.csv") %>%
+  mutate(DOW = fixlakeid(DOW)) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+
+coonrapids <- read.csv("CoonRapids_012926.csv" ) %>%
+    mutate(DOW = fixlakeid(DOW)) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+
+elkriver <- read.csv("ElkRiver_111425.csv") %>%
+  mutate(DOW = fixlakeid(DOW)) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
 
 lakeville <- read.csv("Lakeville_091825.csv") %>%
-  mutate(DOW = as.character(DOW)) %>%
+  mutate(DOW = fixlakeid(DOW)) %>%
   mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
 
-# bloomington <- read.csv("______________.csv") %>% # still needs to be organized
-#   mutate(DOW = as.character(DOW)) %>%
-#   mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
- 
-elkriver <- read.csv("ElkRiver_111425.csv") %>%
-  mutate(DOW = as.character(DOW)) %>%
-  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
 
+minnetonka <- read.csv("MSP-beaches_Minnetonka_clean.csv") %>%
+ mutate(DOW = fixlakeid(DOW)) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d")) %>%
+  select(-Notes)
 
 
 priorlake1 <- read.csv("PriorLake1_091725_fixed.csv") %>%
@@ -106,11 +106,19 @@ priorlake <- rbind(priorlake1, priorlake2)
 rm(priorlake1, priorlake2)
 
 
+woodbury <- read.csv("Woodbury_091725.csv") %>%
+  mutate(DOW = fixlakeid(DOW)) %>%
+  mutate(date = as.Date(date, format = "%Y-%m-%d")) %>%
+  rename(Date = date) %>%
+  select(-units)
+
+
+
 ```
 
 ```{r combine}
 
-all_beaches <- rbind(trpd, mprb, ramco, dakco, henco, wrico, blaine, burnsville, bloomington, lakeville, minnetonka, woodbury, elkriver, priorlake)
+all_beaches <- rbind(trpd, mprb, ramco, dakco, henco, wrico, blaine, burnsville, bloomington, lakeville, coonrapids, minnetonka, woodbury, elkriver, priorlake)
 
 
 
@@ -122,13 +130,19 @@ all_beaches <- all_beaches %>%
 str(all_beaches)
 summary(all_beaches)
 
+unique(all_beaches$BeachName)
+# might still need some fine tuning in OpenRefine but looks ok
+
+# remove "Beach" from:  Bush lake Beach (Bloomington), Crystal Beach (Burnsville), Lakeside Commons Beach (Blaine), Sand Point Beach (Prior Lake), Watzl's Beach (Prior Lake) ??? or not bother?
+
 ```
 
 ```{r write to file}
 getwd()
 
 setwd("G:/My Drive/Research/beaches/data/processed")
-write.csv(all_beaches, "./combined/All_beaches_new_120925.csv", row.names = FALSE)
+
+write.csv(all_beaches, "./combined/All_beaches_new_012926.csv", row.names = FALSE)
 
 
 
