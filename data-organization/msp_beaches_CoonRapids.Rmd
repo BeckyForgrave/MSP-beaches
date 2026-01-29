@@ -1,0 +1,131 @@
+---
+title: "beaches_crooked_lake"
+author: "Becky Forgrave"
+date: "2026-01-29"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(googledrive)
+library(readxl)
+library(here)
+library(FSA) # for geomean() function
+library(janitor) # for row_to_names() fucntion
+library(mnsentinellakes)
+
+```
+
+# Read back into R 
+```{r covert column formats}
+
+setwd("G:/My Drive/Research/beaches/data/recieved/Crooked Lake - Coon Rapids")
+
+cr <- read.csv("ALL Results_Crooked Lake Bacteria Test Results_2019-2025_formatted.csv") %>%
+  mutate(date = as.Date(Date, format = "%m/%d/%Y")) %>%
+  filter(!is.na(DOW)) %>%
+  mutate(DOW = fixlakeid(DOW)) %>%
+  rename(BeachName = Lake, 
+         ecoli = Result,
+         Ecoli_units = Units) %>%
+  select(date, BeachName, ecoli, Ecoli_units, DOW)
+
+str(cr)
+summary(cr)
+
+
+```
+
+```{r calculate geometric means}
+
+# create new column to hold calculated values
+cr$Ecoli_1dGM <-0
+cr$Ecoli_30dGM <- 0
+
+
+
+# loop through each day
+for (i in 1:length(cr$date)) {
+  intervalstart <- as.POSIXct(cr$date[i] - 30) # start 30 days before sampling date
+  intervalend <-  as.POSIXct(cr$date[i])
+
+  # select all E coli measurements for one day
+  oneday <-  cr %>%
+    filter(date == intervalend)
+  
+  # calculate 1 day geometric mean and add it to column in df
+  cr$Ecoli_1dGM[i] <- round(geomean(oneday$ecoli, na.rm = TRUE), digits = 1)
+  
+  # select all E coli measurements in 30 day range
+  span30d <-  cr %>%
+    filter(date >= intervalstart & date <= intervalend)
+  
+  # calculate 30-day geometric mean and add it to column in df
+  cr$Ecoli_30dGM[i] <- round(geomean(span30d$ecoli, na.rm = TRUE), digits = 1)
+  
+}
+
+
+```
+
+```{r fill additional columns}
+
+# add columns to match master dataset--------------------
+cr_final <- cr %>%
+  filter(!is.na(Ecoli_1dGM)) %>%
+  mutate(
+    ClosureYN = "N",
+    ClosureReason = NA,
+    MonitoringOrg = "Coon Rapids") 
+
+
+
+# find a label beach closures-------------------------------
+
+cr_final <- cr_final %>%
+  mutate(
+    ClosureYN = if_else(
+      condition = Ecoli_1dGM > 235,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    ClosureReason = if_else(
+      condition = Ecoli_1dGM > 235,
+      true = "ecoli_1dayGM",
+      false = NA)
+  ) %>% 
+  mutate(
+    ClosureYN = if_else(
+      condition = Ecoli_30dGM > 126,
+      true = "Y",
+      false = "N")
+  ) %>%
+  mutate(
+    ClosureReason = if_else(
+      condition = Ecoli_30dGM > 126,
+      true = "ecoli_30dayGM",
+      false = NA)
+  ) 
+
+# rearrange columns
+cr_final <- cr_final %>%
+  rename(Date = date) %>%
+  select(BeachName, DOW, Date, MonitoringOrg, Ecoli_1dGM, Ecoli_30dGM, Ecoli_units, ClosureYN, ClosureReason)
+
+```
+
+```{r save data}
+
+
+# upload to Google Drive 
+setwd("G:/My Drive/Research/beaches/data/processed/")
+
+
+write.csv(cr_final, file = "CoonRapids_012926.csv", row.names = FALSE)
+
+
+```
